@@ -145,6 +145,28 @@ def fetch_video_info(url: str) -> dict[str, Any]:
         raise
 
 
+def sanitize_fixture_data(data: dict[str, Any]) -> dict[str, Any]:
+    """Sanitize fixture data to remove personal information.
+
+    Args:
+        data: Video info dict
+
+    Returns:
+        Sanitized data with IP addresses replaced
+    """
+    import re
+
+    # Convert to JSON string, replace IPs, convert back
+    json_str = json.dumps(data, default=str)
+
+    # Replace IP addresses with 0.0.0.0
+    # Match patterns like ip=1.2.3.4 or "ip": "1.2.3.4"
+    json_str = re.sub(r'ip=\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', 'ip=0.0.0.0', json_str)
+    json_str = re.sub(r'"ip":\s*"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"', '"ip": "0.0.0.0"', json_str)
+
+    return json.loads(json_str)  # type: ignore[no-any-return]
+
+
 def save_fixture(filename: str, data: dict[str, Any]) -> None:
     """Save fixture data to JSON file.
 
@@ -155,10 +177,13 @@ def save_fixture(filename: str, data: dict[str, Any]) -> None:
     filepath = FIXTURES_DIR / filename
     logger.info(f"Saving fixture: {filepath}")
 
-    with open(filepath, "w") as f:
-        json.dump(data, f, indent=2, default=str)
+    # Sanitize data before saving
+    sanitized_data = sanitize_fixture_data(data)
 
-    logger.info(f"✓ Saved: {filename} ({len(json.dumps(data))} bytes)")
+    with open(filepath, "w") as f:
+        json.dump(sanitized_data, f, indent=2, default=str)
+
+    logger.info(f"✓ Saved: {filename} ({len(json.dumps(sanitized_data))} bytes) [IP sanitized]")
 
 
 def update_all_fixtures() -> None:
