@@ -44,3 +44,9 @@ uv run mypy python/
 # Linting
 uv run ruff check .
 ```
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## Development Notes
+
+Parts of this codebase were developed with assistance from Claude (Anthropic).
