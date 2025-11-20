@@ -81,22 +81,6 @@ class VideoInfo(BaseModel):
     download_timestamp: datetime | None = None
 
 
-class DownloadOptions(BaseModel):
-    """Options for downloading videos/audio."""
-
-    format: str = "best"  # yt-dlp format selector
-    extract_audio: bool = False
-    audio_format: str = "mp3"
-    audio_quality: str = "192K"
-    output_template: str = "%(title)s.%(ext)s"
-    write_subtitles: bool = False
-    write_auto_subtitles: bool = False
-    subtitle_langs: list[str] = Field(default_factory=lambda: ["en"])
-    quiet: bool = True
-    no_warnings: bool = False
-    progress_hooks: list = Field(default_factory=list)
-
-
 @dataclass
 class VideoDownloadOptions:
     """Options for downloading videos."""

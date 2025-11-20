@@ -6,7 +6,7 @@ from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
 
-from pydantic import ValidationError
+from pydantic import Field, ValidationError
 from pydantic.fields import FieldInfo
 from pydantic_settings import (
     BaseSettings,
@@ -88,6 +88,10 @@ class Settings(BaseSettings):
     # QDrant Vector Database
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: str | None = None
+
+    # OpenAI API (for Whisper transcription)
+    openai_api_key: str | None = Field(default=None, validation_alias="OPENAI_API_KEY")
+    openai_organization: str | None = Field(default=None, validation_alias="OPENAI_ORGANIZATION")
 
     # API
     api_v1_prefix: str = "/api/v1"

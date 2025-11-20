@@ -44,7 +44,6 @@ from python.infra.youtube.exceptions import (
 )
 from python.infra.youtube.models import (
     AudioDownloadOptions,
-    DownloadOptions,
     Format,
     Thumbnail,
     Transcription,
@@ -55,7 +54,6 @@ from python.infra.youtube.models import (
 __all__ = [
     "AudioDownloadOptions",
     "DownloadError",
-    "DownloadOptions",
     "ExtractionError",
     "Format",
     "InvalidURLError",

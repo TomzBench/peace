@@ -2,21 +2,22 @@
 
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
 from python.infra.whisper.client import (
+    MAX_FILE_SIZE_BYTES,
+    _get_client,
     _parse_segments,
     _validate_audio_file,
-    load_model,
     transcribe_and_translate,
     transcribe_audio,
 )
 from python.infra.whisper.exceptions import (
     AudioFileError,
-    ModelLoadError,
     TranscriptionError,
+    WhisperError,
 )
 from python.infra.whisper.models import TranscriptionOptions
 
@@ -45,6 +46,19 @@ def test_validate_audio_file_is_directory(tmp_path: Path) -> None:
         _validate_audio_file(directory)
 
     assert "not a file" in str(exc_info.value).lower()
+
+
+def test_validate_audio_file_size_limit(tmp_path: Path) -> None:
+    """Test validating file size doesn't exceed 25MB API limit."""
+    large_file = tmp_path / "large_audio.mp3"
+    # Create a file larger than 25MB
+    large_file.write_bytes(b"x" * (MAX_FILE_SIZE_BYTES + 1))
+
+    with pytest.raises(AudioFileError) as exc_info:
+        _validate_audio_file(large_file)
+
+    assert "25mb" in str(exc_info.value).lower()
+    assert "exceeds" in str(exc_info.value).lower()
 
 
 def test_parse_segments(mock_whisper_result: dict[str, Any]) -> None:
@@ -102,72 +116,69 @@ def test_parse_segments_with_invalid_data() -> None:
     assert segments[0].text == "Valid segment"
 
 
-@patch("python.infra.whisper.client.whisper")
-def test_load_model(mock_whisper: MagicMock) -> None:
-    """Test loading a Whisper model."""
-    mock_model = MagicMock()
-    mock_whisper.load_model.return_value = mock_model
+@patch("python.infra.whisper.client.get_settings")
+def test_get_client_success(mock_get_settings: MagicMock) -> None:
+    """Test getting OpenAI client with valid API key."""
+    mock_settings = MagicMock()
+    mock_settings.openai_api_key = "sk-test-key"
+    mock_settings.openai_organization = None
+    mock_get_settings.return_value = mock_settings
 
-    # Clear cache before test
-    from python.infra.whisper.client import _model_cache
+    client = _get_client()
 
-    _model_cache.clear()
+    assert client is not None
+    # Client should be an OpenAI instance
+    from openai import OpenAI
 
-    model = load_model("base")
-
-    assert model == mock_model
-    mock_whisper.load_model.assert_called_once_with("base")
-
-
-@patch("python.infra.whisper.client.whisper")
-def test_load_model_caching(mock_whisper: MagicMock) -> None:
-    """Test that models are cached after first load."""
-    mock_model = MagicMock()
-    mock_whisper.load_model.return_value = mock_model
-
-    # Clear cache before test
-    from python.infra.whisper.client import _model_cache
-
-    _model_cache.clear()
-
-    # First load
-    model1 = load_model("small")
-    # Second load (should use cache)
-    model2 = load_model("small")
-
-    assert model1 == model2
-    # Should only call load_model once due to caching
-    mock_whisper.load_model.assert_called_once_with("small")
+    assert isinstance(client, OpenAI)
 
 
-@patch("python.infra.whisper.client.whisper")
-def test_load_model_failure(mock_whisper: MagicMock) -> None:
-    """Test model loading failure."""
-    mock_whisper.load_model.side_effect = Exception("Model not found")
+@patch("python.infra.whisper.client.get_settings")
+def test_get_client_missing_api_key(mock_get_settings: MagicMock) -> None:
+    """Test that missing API key raises WhisperError."""
+    mock_settings = MagicMock()
+    mock_settings.openai_api_key = None
+    mock_get_settings.return_value = mock_settings
 
-    with pytest.raises(ModelLoadError) as exc_info:
-        load_model("invalid-model")
+    with pytest.raises(WhisperError) as exc_info:
+        _get_client()
 
-    assert "invalid-model" in str(exc_info.value)
-    assert exc_info.value.model_name == "invalid-model"
+    assert "api key not configured" in str(exc_info.value).lower()
 
 
-@patch("python.infra.whisper.client.whisper")
+@patch("python.infra.whisper.client.get_settings")
+def test_get_client_with_organization(mock_get_settings: MagicMock) -> None:
+    """Test getting OpenAI client with organization."""
+    mock_settings = MagicMock()
+    mock_settings.openai_api_key = "sk-test-key"
+    mock_settings.openai_organization = "org-test"
+    mock_get_settings.return_value = mock_settings
+
+    client = _get_client()
+
+    assert client is not None
+    from openai import OpenAI
+
+    assert isinstance(client, OpenAI)
+
+
+@patch("python.infra.whisper.client._get_client")
 def test_transcribe_audio(
-    mock_whisper: MagicMock,
+    mock_get_client: MagicMock,
     temp_audio_file: Path,
     mock_whisper_result: dict[str, Any],
 ) -> None:
-    """Test transcribing an audio file."""
-    # Setup mock
-    mock_model = MagicMock()
-    mock_model.transcribe.return_value = mock_whisper_result
-    mock_whisper.load_model.return_value = mock_model
+    """Test transcribing an audio file via API."""
+    # Setup mock client and response
+    mock_client = MagicMock()
+    mock_response = Mock()
+    mock_response.text = mock_whisper_result["text"]
+    mock_response.segments = mock_whisper_result["segments"]
+    mock_response.language = mock_whisper_result["language"]
+    mock_response.duration = mock_whisper_result["duration"]
 
-    # Clear cache
-    from python.infra.whisper.client import _model_cache
-
-    _model_cache.clear()
+    mock_client.audio.transcriptions.create.return_value = mock_response
+    mock_get_client.return_value = mock_client
 
     # Transcribe
     result = transcribe_audio(temp_audio_file)
@@ -177,54 +188,54 @@ def test_transcribe_audio(
     assert len(result.segments) == 2
     assert result.language == "en"
     assert result.audio_file == temp_audio_file
-    assert result.model_name == "base"
+    assert result.model_name == "whisper-1"
     assert result.duration == 4.0
 
-    # Verify model.transcribe was called correctly
-    mock_model.transcribe.assert_called_once()
-    call_args = mock_model.transcribe.call_args
-    assert str(temp_audio_file) in call_args[0]
+    # Verify API was called correctly
+    mock_client.audio.transcriptions.create.assert_called_once()
+    call_kwargs = mock_client.audio.transcriptions.create.call_args[1]
+    assert call_kwargs["model"] == "whisper-1"
+    assert call_kwargs["response_format"] == "verbose_json"
 
 
-@patch("python.infra.whisper.client.whisper")
+@patch("python.infra.whisper.client._get_client")
 def test_transcribe_audio_with_options(
-    mock_whisper: MagicMock,
+    mock_get_client: MagicMock,
     temp_audio_file: Path,
     mock_whisper_result: dict[str, Any],
 ) -> None:
     """Test transcribing with custom options."""
-    # Setup mock
-    mock_model = MagicMock()
-    mock_model.transcribe.return_value = mock_whisper_result
-    mock_whisper.load_model.return_value = mock_model
+    # Setup mock client and response
+    mock_client = MagicMock()
+    mock_response = Mock()
+    mock_response.text = mock_whisper_result["text"]
+    mock_response.segments = mock_whisper_result["segments"]
+    mock_response.language = mock_whisper_result["language"]
+    mock_response.duration = mock_whisper_result["duration"]
 
-    # Clear cache
-    from python.infra.whisper.client import _model_cache
-
-    _model_cache.clear()
+    mock_client.audio.transcriptions.create.return_value = mock_response
+    mock_get_client.return_value = mock_client
 
     # Transcribe with options
     options = TranscriptionOptions(
-        model="small",
+        model="small",  # This will be ignored (API only has whisper-1)
         language="en",
         temperature=0.5,
         initial_prompt="This is a test",
     )
     result = transcribe_audio(temp_audio_file, options)
 
-    # Verify result
-    assert result.model_name == "small"
+    # Verify result - model should be whisper-1 regardless of input
+    assert result.model_name == "whisper-1"
 
-    # Verify transcribe was called with correct parameters
-    call_kwargs = mock_model.transcribe.call_args[1]
+    # Verify API was called with correct parameters
+    call_kwargs = mock_client.audio.transcriptions.create.call_args[1]
     assert call_kwargs["language"] == "en"
     assert call_kwargs["temperature"] == 0.5
-    assert call_kwargs["initial_prompt"] == "This is a test"
+    assert call_kwargs["prompt"] == "This is a test"  # Note: renamed to "prompt"
 
 
-@patch("python.infra.whisper.client.whisper")
 def test_transcribe_audio_file_not_found(
-    mock_whisper: MagicMock,
     invalid_audio_file: Path,
 ) -> None:
     """Test transcribing a missing audio file."""
@@ -232,56 +243,52 @@ def test_transcribe_audio_file_not_found(
         transcribe_audio(invalid_audio_file)
 
 
-@patch("python.infra.whisper.client.whisper")
-def test_transcribe_audio_model_load_error(
-    mock_whisper: MagicMock,
+@patch("python.infra.whisper.client._get_client")
+def test_transcribe_audio_api_key_error(
+    mock_get_client: MagicMock,
     temp_audio_file: Path,
 ) -> None:
-    """Test transcription when model fails to load."""
-    mock_whisper.load_model.side_effect = Exception("Model load failed")
+    """Test transcription when API key is missing."""
+    mock_get_client.side_effect = WhisperError("API key not configured")
 
-    with pytest.raises(ModelLoadError):
+    with pytest.raises(WhisperError):
         transcribe_audio(temp_audio_file)
 
 
-@patch("python.infra.whisper.client.whisper")
+@patch("python.infra.whisper.client._get_client")
 def test_transcribe_audio_transcription_error(
-    mock_whisper: MagicMock,
+    mock_get_client: MagicMock,
     temp_audio_file: Path,
 ) -> None:
-    """Test transcription failure."""
-    # Setup mock
-    mock_model = MagicMock()
-    mock_model.transcribe.side_effect = Exception("Transcription failed")
-    mock_whisper.load_model.return_value = mock_model
-
-    # Clear cache
-    from python.infra.whisper.client import _model_cache
-
-    _model_cache.clear()
+    """Test API transcription failure."""
+    # Setup mock to raise exception
+    mock_client = MagicMock()
+    mock_client.audio.transcriptions.create.side_effect = Exception("API error")
+    mock_get_client.return_value = mock_client
 
     with pytest.raises(TranscriptionError) as exc_info:
         transcribe_audio(temp_audio_file)
 
-    assert "Transcription failed" in str(exc_info.value)
+    assert "api" in str(exc_info.value).lower()
 
 
-@patch("python.infra.whisper.client.whisper")
+@patch("python.infra.whisper.client._get_client")
 def test_transcribe_and_translate(
-    mock_whisper: MagicMock,
+    mock_get_client: MagicMock,
     temp_audio_file: Path,
     mock_translated_result: dict[str, Any],
 ) -> None:
-    """Test transcribing and translating to English."""
-    # Setup mock
-    mock_model = MagicMock()
-    mock_model.transcribe.return_value = mock_translated_result
-    mock_whisper.load_model.return_value = mock_model
+    """Test transcribing and translating to English via API."""
+    # Setup mock client and response
+    mock_client = MagicMock()
+    mock_response = Mock()
+    mock_response.text = mock_translated_result["text"]
+    mock_response.segments = mock_translated_result["segments"]
+    mock_response.language = mock_translated_result["language"]
+    mock_response.duration = mock_translated_result["duration"]
 
-    # Clear cache
-    from python.infra.whisper.client import _model_cache
-
-    _model_cache.clear()
+    mock_client.audio.translations.create.return_value = mock_response
+    mock_get_client.return_value = mock_client
 
     # Transcribe and translate
     result = transcribe_and_translate(temp_audio_file)
@@ -291,33 +298,32 @@ def test_transcribe_and_translate(
     assert result.translation == "Hello, this is an English translation."
     assert result.language == "es"  # Original language
 
-    # Verify task was set to "translate"
-    call_kwargs = mock_model.transcribe.call_args[1]
-    assert call_kwargs["task"] == "translate"
+    # Verify translations endpoint was called (not transcriptions)
+    mock_client.audio.translations.create.assert_called_once()
 
 
-@patch("python.infra.whisper.client.whisper")
+@patch("python.infra.whisper.client._get_client")
 def test_transcribe_and_translate_with_options(
-    mock_whisper: MagicMock,
+    mock_get_client: MagicMock,
     temp_audio_file: Path,
     mock_translated_result: dict[str, Any],
 ) -> None:
-    """Test transcribe_and_translate overrides task option."""
-    # Setup mock
-    mock_model = MagicMock()
-    mock_model.transcribe.return_value = mock_translated_result
-    mock_whisper.load_model.return_value = mock_model
+    """Test transcribe_and_translate with options."""
+    # Setup mock client and response
+    mock_client = MagicMock()
+    mock_response = Mock()
+    mock_response.text = mock_translated_result["text"]
+    mock_response.segments = mock_translated_result["segments"]
+    mock_response.language = mock_translated_result["language"]
+    mock_response.duration = mock_translated_result["duration"]
 
-    # Clear cache
-    from python.infra.whisper.client import _model_cache
+    mock_client.audio.translations.create.return_value = mock_response
+    mock_get_client.return_value = mock_client
 
-    _model_cache.clear()
-
-    # Try to set task to "transcribe", should be overridden to "translate"
+    # Try to set task to "transcribe", should use translations endpoint anyway
     options = TranscriptionOptions(task="transcribe", model="small")
     result = transcribe_and_translate(temp_audio_file, options)
 
-    # Verify task was overridden
-    call_kwargs = mock_model.transcribe.call_args[1]
-    assert call_kwargs["task"] == "translate"
+    # Verify translations endpoint was used
+    mock_client.audio.translations.create.assert_called_once()
     assert result.translation is not None  # Ensure translation field is set

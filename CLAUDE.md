@@ -28,7 +28,46 @@ All three must pass with zero errors.
 
 ## Architecture Patterns
 
-### 1. Functional Approach (NOT Class-Based)
+### 1. Dataclass vs Pydantic BaseModel
+
+**Choose the right tool for data modeling:**
+
+**Use Pydantic `BaseModel` for:**
+- ✅ API response models (data from external APIs)
+- ✅ Database entities (SQLModel)
+- ✅ Data requiring validation, serialization, or type coercion
+- Examples: `VideoInfo`, `Segment`, `TranscriptionResult`, `User`, `Video`
+
+**Use `@dataclass` for:**
+- ✅ Configuration/options objects (simple parameter grouping)
+- ✅ Internal data structures without validation needs
+- Examples: `VideoDownloadOptions`, `AudioDownloadOptions`, `TranscriptionOptions`
+
+**Why this matters:**
+- BaseModel: Validation + serialization, but heavier
+- @dataclass: Lightweight + simple, but no validation
+
+```python
+# ✅ DO: API response with validation
+class VideoInfo(BaseModel):
+    video_id: str
+    title: str
+    duration: int | None = None
+
+# ✅ DO: Simple options without validation
+@dataclass
+class VideoDownloadOptions:
+    format: str = "best"
+    ydl_opts: dict[str, Any] = field(default_factory=dict)
+
+# ❌ DON'T: BaseModel for simple config (overkill)
+class DownloadOptions(BaseModel):
+    format: str = "best"
+```
+
+**Last audited: 2025-11-20** - All models follow this pattern consistently.
+
+### 2. Functional Approach (NOT Class-Based)
 
 **DO** ✅
 ```python
@@ -58,7 +97,7 @@ class UserRepository:
 
 **Why**: Small project with few models. Functional approach is simpler, more explicit, and easier to test.
 
-### 2. FastAPI Dependency Injection
+### 3. FastAPI Dependency Injection
 
 **DO** ✅ Modern pattern with `Annotated`
 ```python
@@ -87,7 +126,7 @@ async def create_user(
 
 **Why**: Function calls in default arguments are evaluated at definition time. `Annotated` is the modern FastAPI pattern and avoids linting warnings.
 
-### 3. SQLModel Schema Pattern
+### 4. SQLModel Schema Pattern
 
 **Unified approach** (less boilerplate for small projects):
 

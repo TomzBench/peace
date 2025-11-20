@@ -1,7 +1,11 @@
 """Whisper audio transcription module.
 
-A functional wrapper around OpenAI Whisper for transcribing audio files
+A functional wrapper around the OpenAI Whisper API for transcribing audio files
 from YouTube videos or other sources.
+
+Note: This module uses the OpenAI Whisper API (not the local library). You need to
+configure your OpenAI API key via the OPENAI_API_KEY environment variable or in
+config.yaml. API usage costs $0.006 per minute of audio.
 
 Examples:
     Basic transcription:
@@ -11,9 +15,9 @@ Examples:
     >>> print(f"Language: {result.language}")
     >>> print(f"Text: {result.text}")
 
-    Transcribe with specific model and language:
+    Transcribe with language and temperature:
     >>> from python.infra.whisper import transcribe_audio, TranscriptionOptions
-    >>> opts = TranscriptionOptions(model="small", language="en")
+    >>> opts = TranscriptionOptions(language="en", temperature=0.2)
     >>> result = transcribe_audio(Path("audio.mp3"), opts)
 
     Transcribe and translate to English:
@@ -33,7 +37,6 @@ Examples:
 """
 
 from python.infra.whisper.client import (
-    load_model,
     transcribe_and_translate,
     transcribe_audio,
 )
@@ -57,7 +60,6 @@ __all__ = [
     "TranscriptionOptions",
     "TranscriptionResult",
     "WhisperError",
-    "load_model",
     "transcribe_and_translate",
     "transcribe_audio",
 ]
