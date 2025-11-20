@@ -43,6 +43,9 @@ uv run mypy python/
 
 # Linting
 uv run ruff check .
+
+# update python.yt.tests test fixtures
+python -m python.yt.tests.update_fixtures --url https://youtube.com/watch?v=...
 ```
 
 MIT License - see [LICENSE](LICENSE) file for details.
