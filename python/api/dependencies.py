@@ -8,9 +8,9 @@ from typing import Annotated
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from python.api.config import Settings
-from python.api.config import get_settings as get_settings_from_context
 from python.api.db.sql import get_session
+from python.config import Settings
+from python.config import get_settings as get_settings_from_context
 
 
 def get_settings_from_request(request: Request) -> Settings:

@@ -8,7 +8,7 @@ import logging
 
 from qdrant_client import AsyncQdrantClient
 
-from python.api.config import get_settings
+from python.config import get_settings
 
 logger = logging.getLogger(__name__)
 

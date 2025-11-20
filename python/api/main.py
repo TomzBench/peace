@@ -5,10 +5,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from python.api.config import Settings, set_settings
 from python.api.db import shutdown_db, startup_db
 from python.api.routes import app as app_routes
 from python.api.routes import users
+from python.config import Settings, set_settings
 
 
 def create_app(custom_settings: Settings | None = None) -> FastAPI:

@@ -7,8 +7,8 @@ from textwrap import dedent
 
 import uvicorn
 
-from python.api.config import Settings, configure_logging
 from python.api.main import create_app
+from python.config import Settings, configure_logging
 
 logger = logging.getLogger(__name__)
 

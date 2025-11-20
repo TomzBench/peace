@@ -11,10 +11,9 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlmodel import SQLModel
 
-from python.api.config import get_settings
-
 # Import models so SQLModel can create tables
 from python.api.models.user import User  # noqa: F401
+from python.config import get_settings
 
 logger = logging.getLogger(__name__)
 

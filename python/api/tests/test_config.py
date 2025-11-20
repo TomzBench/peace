@@ -8,7 +8,7 @@ from textwrap import dedent
 import pytest
 from pydantic import ValidationError
 
-from python.api.config import Settings
+from python.config import Settings
 
 
 def test_settings_load_without_yaml() -> None:
