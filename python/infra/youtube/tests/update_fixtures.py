@@ -61,7 +61,7 @@ def fetch_subtitle_content(ydl: Any, url: str, lang: str, formats: list[dict[str
                 continue
 
             # Download subtitle content
-            content = ydl.urlopen(sub_url).read().decode("utf-8")
+            content: str = ydl.urlopen(sub_url).read().decode("utf-8")
 
             # Skip m3u8 playlists - we want actual subtitle content
             if content.startswith("#EXTM3U"):
