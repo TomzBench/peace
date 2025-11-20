@@ -99,7 +99,7 @@ exclude = [
 
 # Per-module options for third-party libraries without type stubs
 [[tool.mypy.overrides]]
-module = ["qdrant_client.*", "sqlmodel.*", "alembic.*"]
+module = ["qdrant_client.*", "sqlmodel.*", "alembic.*", "whisper.*"]
 ignore_missing_imports = true
 
 # Pylsp configuration
@@ -109,16 +109,18 @@ plugins.jedi.extra_paths = [".venv/lib/python3.11/site-packages"]
 
 # Pytest configuration
 [tool.pytest.ini_options]
-testpaths = ["python/api/tests"]
+testpaths = ["python/"]
 pythonpath = ["."]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
 # Coverage configuration
 [tool.coverage.run]
-source = ["python/api"]
+source = ["python/"]
+concurrency = ["thread", "greenlet"]
 omit = [
-    "python/api/tests/*",
+    "*/tests/*",
+    "*/test_*.py",
     "*/__pycache__/*",
     "*/.venv/*",
 ]
