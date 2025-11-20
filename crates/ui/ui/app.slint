@@ -1,0 +1,101 @@
+import { Button, VerticalBox, HorizontalBox, TextEdit, ScrollView, GroupBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    // Properties for communication with Rust
+    in-out property <string> status-text: "Ready to run vector search...";
+    in-out property <string> output-log: "";
+    in-out property <bool> is-running: false;
+
+    // Callbacks that Rust will implement
+    callback run-search();
+
+    preferred-width: 800px;
+    preferred-height: 600px;
+    title: "Qdrant Vector Search - Slint + PyO3";
+
+    VerticalBox {
+        padding: 20px;
+        spacing: 15px;
+
+        // Header
+        Text {
+            text: "Qdrant Vector Database Example";
+            font-size: 24px;
+            font-weight: 700;
+            horizontal-alignment: center;
+        }
+
+        // Status bar
+        GroupBox {
+            title: "Status";
+
+            HorizontalBox {
+                padding: 10px;
+
+                Rectangle {
+                    width: 12px;
+                    height: 12px;
+                    border-radius: 6px;
+                    background: is-running ? #4CAF50 : #FFC107;
+                }
+
+                Text {
+                    text: status-text;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        // Control panel
+        GroupBox {
+            title: "Controls";
+
+            HorizontalBox {
+                padding: 10px;
+                spacing: 10px;
+
+                Button {
+                    text: is-running ? "Running..." : "Run Vector Search";
+                    enabled: !is-running;
+                    clicked => {
+                        run-search();
+                    }
+                    primary: true;
+                }
+
+                Rectangle {
+                    // Spacer
+                }
+            }
+        }
+
+        // Output log
+        GroupBox {
+            title: "Output";
+
+            VerticalBox {
+                padding: 10px;
+
+                ScrollView {
+                    preferred-height: 300px;
+
+                    TextEdit {
+                        text: output-log;
+                        read-only: true;
+                        wrap: word-wrap;
+                    }
+                }
+            }
+        }
+
+        // Footer
+        HorizontalBox {
+            Text {
+                text: "Backend: Python (PyO3) | Frontend: Slint (Rust)";
+                font-size: 12px;
+                color: #666;
+                horizontal-alignment: center;
+            }
+        }
+    }
+}

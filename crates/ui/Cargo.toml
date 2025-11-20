@@ -1,0 +1,16 @@
+[package]
+name = "peace-ui"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+indoc = { workspace = true }
+pyo3 =  { workspace = true }
+slint =  { workspace = true }
+
+[build-dependencies]
+slint-build = { workspace = true }
+
+[[bin]]
+name = "peace"
+path = "src/main.rs"

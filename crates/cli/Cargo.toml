@@ -1,0 +1,12 @@
+[package]
+name = "peace-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+peace-core = { workspace = true }
+lexopt = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+indoc.workspace = true
