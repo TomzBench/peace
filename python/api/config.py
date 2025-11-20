@@ -1,5 +1,7 @@
 """Application configuration using Pydantic settings."""
 
+import logging
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,6 +19,9 @@ class Settings(BaseSettings):
     app_name: str = "Peace API"
     debug: bool = False
 
+    # Logging
+    log_level: str = "INFO"
+
     # Database
     database_url: str = "sqlite+aiosqlite:///./peace.db"
     echo_sql: bool = False
@@ -32,3 +37,10 @@ class Settings(BaseSettings):
 
 # Global settings instance
 settings = Settings()
+
+# Configure logging
+logging.basicConfig(
+    level=getattr(logging, settings.log_level.upper()),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
