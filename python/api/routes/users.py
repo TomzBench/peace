@@ -1,10 +1,8 @@
 """User CRUD routes."""
 
 import logging
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, Query
 
 from python.api.crud.user import (
     create_user,
@@ -14,16 +12,13 @@ from python.api.crud.user import (
     list_users,
     update_user,
 )
-from python.api.db import get_session
+from python.api.dependencies import SessionDep
 from python.api.models.user import User, UserCreate, UserRead, UserUpdate
 from python.api.security import hash_password
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/users", tags=["users"])
-
-# Dependency injection type aliases
-SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
 @router.post("/", response_model=UserRead, status_code=201)

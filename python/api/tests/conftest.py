@@ -3,6 +3,7 @@
 from collections.abc import AsyncGenerator
 
 import pytest
+from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -13,7 +14,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlmodel import SQLModel
 
 from python.api.db.sql import get_session
-from python.api.main import app
+from python.api.main import create_app
 
 
 @pytest.fixture(scope="session")
@@ -53,7 +54,13 @@ async def test_session(test_engine: AsyncEngine) -> AsyncGenerator[AsyncSession,
 
 
 @pytest.fixture
-async def client(test_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+def app() -> FastAPI:
+    """Create a test application instance."""
+    return create_app()
+
+
+@pytest.fixture
+async def client(app: FastAPI, test_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     """Create a test client with dependency overrides."""
 
     async def override_get_session() -> AsyncGenerator[AsyncSession, None]:

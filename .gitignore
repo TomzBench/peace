@@ -49,6 +49,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+.coverage.lcov
 
 # Type checking
 .mypy_cache/
@@ -68,6 +69,10 @@ dmypy.json
 # Environment variables
 .env
 .env.local
+
+# Configuration files (may contain secrets)
+config.yaml
+config.yml
 
 # IDE
 .vscode/

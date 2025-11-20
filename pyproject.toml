@@ -23,6 +23,8 @@ dependencies = [
     # Pydantic
     "pydantic>=2.10.0",
     "pydantic-settings>=2.7.0",
+    # Configuration
+    "ruamel.yaml>=0.18.0",
 ]
 
 [build-system]
@@ -38,6 +40,7 @@ dev = [
     "mypy>=1.14.1",
     "pytest>=8.3.0",
     "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
     "httpx>=0.28.0",
 ]
 
@@ -110,3 +113,17 @@ testpaths = ["python/api/tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["python/api"]
+omit = [
+    "python/api/tests/*",
+    "*/__pycache__/*",
+    "*/.venv/*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false

@@ -6,8 +6,8 @@ from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from python.api.db.sql import async_session_maker, init_db
-from python.api.db.vector import close_vector_dbs, init_vector_dbs
+from python.api.db.sql import get_session_maker, init_db
+from python.api.db.vector import close_vector_db, init_vector_db
 
 logger = logging.getLogger(__name__)
 
@@ -16,14 +16,14 @@ async def startup_db() -> None:
     """Initialize all databases on application startup."""
     logger.info("Starting database initialization")
     await init_db()
-    await init_vector_dbs()
+    await init_vector_db()
     logger.info("Database initialization complete")
 
 
 async def shutdown_db() -> None:
     """Clean up database connections on application shutdown."""
     logger.info("Starting database shutdown")
-    await close_vector_dbs()
+    await close_vector_db()
     logger.info("Database shutdown complete")
 
 
@@ -32,9 +32,11 @@ async def get_db_context() -> AsyncGenerator[AsyncSession, None]:
     """Context manager for database sessions outside of FastAPI dependency injection.
 
     Useful for background tasks, CLI scripts, or testing.
+    Settings are retrieved from context automatically.
     """
     logger.debug("Creating database context session")
-    async with async_session_maker() as session:
+    session_maker = get_session_maker()
+    async with session_maker() as session:
         try:
             yield session
             logger.debug("Committing database context session")

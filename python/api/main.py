@@ -5,39 +5,62 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from python.api.config import settings
+from python.api.config import Settings, set_settings
 from python.api.db import shutdown_db, startup_db
+from python.api.routes import app as app_routes
 from python.api.routes import users
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Manage application lifecycle - startup and shutdown events."""
-    # Startup
-    await startup_db()
-    yield
-    # Shutdown
-    await shutdown_db()
+def create_app(custom_settings: Settings | None = None) -> FastAPI:
+    """Application factory function.
 
+    Args:
+        custom_settings: Optional custom settings. If None, loads from YAML config.
 
-# Create FastAPI application
-app = FastAPI(
-    title=settings.app_name,
-    debug=settings.debug,
-    lifespan=lifespan,
-)
+    Returns:
+        Configured FastAPI application
 
-# Include routers
-app.include_router(users.router)
+    Examples:
+        # Default settings from YAML config + environment
+        app = create_app()
 
+        # Custom settings
+        settings = Settings(database_url="postgresql://...")
+        app = create_app(settings)
+    """
+    # Initialize settings
+    app_settings = custom_settings or Settings.load()
 
-@app.get("/")
-async def root() -> dict[str, str]:
-    """Root endpoint for health check."""
-    return {"status": "ok", "message": f"Welcome to {settings.app_name}"}
+    # Set in ContextVar for clean access throughout the app
+    set_settings(app_settings)
 
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+        """Manage application lifecycle - startup and shutdown events."""
+        # Store settings in app.state (FastAPI native way)
+        app.state.settings = app_settings
 
-@app.get("/health")
-async def health() -> dict[str, str]:
-    """Health check endpoint."""
-    return {"status": "healthy"}
+        # Also ensure ContextVar is set (for background tasks, etc.)
+        set_settings(app_settings)
+
+        # Startup
+        await startup_db()
+        yield
+        # Shutdown
+        await shutdown_db()
+
+    # Create FastAPI application
+    app = FastAPI(
+        title=app_settings.app_name,
+        debug=app_settings.debug,
+        lifespan=lifespan,
+    )
+
+    # Store settings in app.state for FastAPI patterns
+    app.state.settings = app_settings
+
+    # Include routers
+    app.include_router(app_routes.router)
+    app.include_router(users.router)
+
+    return app
