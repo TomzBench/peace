@@ -12,6 +12,43 @@ from pydantic import BaseModel, Field
 # Re-export SDK types for convenience
 Segment = TranscriptionSegment
 
+
+class OpenAIFile(BaseModel):
+    """Base class for files that can be sent to OpenAI APIs.
+
+    Provides universal OpenAI SDK compatibility through the .file property
+    which returns the (filename, bytes) tuple format accepted by all
+    OpenAI file upload endpoints.
+    """
+
+    filename: str  # Filename with extension
+    data: bytes  # File contents as bytes
+
+    @property
+    def file(self) -> tuple[str, bytes]:
+        """Get OpenAI SDK-compatible tuple format.
+
+        Returns:
+            Tuple of (filename, data) ready for any OpenAI file upload API
+
+        Examples:
+            >>> openai_file = OpenAIFile(filename="audio.mp3", data=b"...")
+            >>> client.audio.transcriptions.create(file=openai_file.file)
+        """
+        return (self.filename, self.data)
+
+
+class AudioFile(OpenAIFile):
+    """Audio file with metadata.
+
+    Inherits from OpenAIFile and adds audio-specific metadata.
+    Can be passed to OpenAI audio APIs via the .file property.
+    """
+
+    path: Path  # Full path to audio file
+    size: int  # File size in bytes
+    extension: str  # File extension (e.g., ".mp3")
+
 # Composable base classes (OpenAI API patterns)
 # Defined first so they can be referenced by result/option classes
 
@@ -69,6 +106,20 @@ class TranscriptionResult(BaseModel):
     # Optional fields
     translation: str | None = None  # English translation (if applicable)
 
+    def __repr__(self) -> str:
+        """Compact string representation suitable for logging."""
+        duration_str = f"{self.duration:.1f}s" if self.duration else "unknown"
+        return (
+            f"TranscriptionResult("
+            f"file={self.audio_file.name!r}, "
+            f"chars={len(self.text)}, "
+            f"segments={len(self.segments)}, "
+            f"language={self.language!r}, "
+            f"duration={duration_str}, "
+            f"model={self.model_name!r}"
+            f")"
+        )
+
 
 # Request options (dataclasses with composition)
 
@@ -91,8 +142,6 @@ class TranscriptionOptions:
     temperature: float = 0.0  # Sampling temperature (0-1)
     timestamp_granularities: list[str] | None = None  # ["word", "segment"]
 
-    # Composed options (OpenAI patterns)
-    response: ResponseOptions = field(default_factory=ResponseOptions)
     request_config: OpenAIRequestConfig = field(default_factory=OpenAIRequestConfig)
 
 
@@ -113,7 +162,6 @@ class TranslateOptions:
     temperature: float = 0.0  # Sampling temperature (0-1)
 
     # Composed options (OpenAI patterns)
-    response: ResponseOptions = field(default_factory=ResponseOptions)
     request_config: OpenAIRequestConfig = field(default_factory=OpenAIRequestConfig)
 
 
@@ -138,18 +186,6 @@ def flatten_options(
 
     Returns:
         Flattened dict suitable for API calls
-
-    Examples:
-        >>> opts = TranscriptionOptions(
-        ...     model="whisper-1",
-        ...     language="en",
-        ...     response=ResponseOptions(response_format="json")
-        ... )
-        >>> flatten_options(opts, exclude_fields={'request_config'})
-        {'model': 'whisper-1', 'language': 'en', 'response_format': 'json'}
-
-        >>> # Exclude None values automatically
-        >>> params = flatten_options(opts, exclude_none=True)
     """
     from dataclasses import asdict
 

@@ -5,139 +5,27 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from python.infra.whisper.client import (
-    MAX_FILE_SIZE_BYTES,
-    _get_client,
-    _validate_audio_file,
-    transcribe_audio,
-)
-from python.infra.whisper.exceptions import (
-    AudioFileError,
-    TranscriptionError,
-    WhisperError,
-)
-from python.infra.whisper.models import (
-    TranscriptionOptions,
-    TranscriptionResult,
-)
+from python.infra.whisper.client import transcribe_audio
+from python.infra.whisper.exceptions import TranscriptionError
+from python.infra.whisper.models import AudioFile, TranscriptionOptions, TranscriptionResult
 
-# Test _get_client()
+# Tests for client creation moved to test_dependencies.py
 
 
-@patch("python.infra.whisper.client.get_settings")
-@patch("python.infra.whisper.client.OpenAI")
-def test_get_client_success(mock_openai: Mock, mock_settings: Mock) -> None:
-    """Test getting OpenAI client with valid API key."""
-    mock_settings.return_value.openai_api_key = "test-api-key"
-    mock_settings.return_value.openai_organization = "test-org"
-
-    client = _get_client()
-
-    mock_openai.assert_called_once_with(
-        api_key="test-api-key",
-        organization="test-org",
-    )
-    assert client is not None
-
-
-@patch("python.infra.whisper.client.get_settings")
-def test_get_client_missing_api_key(mock_settings: Mock) -> None:
-    """Test that missing API key raises WhisperError."""
-    mock_settings.return_value.openai_api_key = None
-
-    with pytest.raises(WhisperError) as exc_info:
-        _get_client()
-
-    assert "OpenAI API key not configured" in str(exc_info.value)
-
-
-# Test _validate_audio_file()
-
-
-def test_validate_audio_file_success(tmp_path: Path) -> None:
-    """Test validation of valid audio file."""
-    audio_file = tmp_path / "test.mp3"
-    audio_file.write_bytes(b"fake audio data")
-
-    # Should not raise
-    _validate_audio_file(audio_file)
-
-
-def test_validate_audio_file_not_found() -> None:
-    """Test validation fails for non-existent file."""
-    audio_file = Path("/nonexistent/file.mp3")
-
-    with pytest.raises(AudioFileError) as exc_info:
-        _validate_audio_file(audio_file)
-
-    assert "Audio file not found" in str(exc_info.value)
-    assert exc_info.value.file_path == str(audio_file)
-
-
-def test_validate_audio_file_is_directory(tmp_path: Path) -> None:
-    """Test validation fails for directory."""
-    audio_dir = tmp_path / "audio_dir"
-    audio_dir.mkdir()
-
-    with pytest.raises(AudioFileError) as exc_info:
-        _validate_audio_file(audio_dir)
-
-    assert "Path is not a file" in str(exc_info.value)
-
-
-def test_validate_audio_file_exceeds_size_limit(tmp_path: Path) -> None:
-    """Test validation fails for file exceeding 25MB limit."""
-    audio_file = tmp_path / "large.mp3"
-    audio_file.write_bytes(b"fake audio data")
-
-    # Mock the file size check to return size > 25MB
-    with patch.object(Path, "stat") as mock_stat:
-
-        # Create a mock stat result with proper st_mode for is_file() and large st_size
-        mock_stat_result = MagicMock()
-        mock_stat_result.st_mode = 0o100644  # Regular file mode
-        mock_stat_result.st_size = MAX_FILE_SIZE_BYTES + 1
-        mock_stat.return_value = mock_stat_result
-
-        with pytest.raises(AudioFileError) as exc_info:
-            _validate_audio_file(audio_file)
-
-        assert "exceeds" in str(exc_info.value)
-        assert "25MB" in str(exc_info.value)
-
-
-def test_validate_audio_file_unusual_extension(
-    tmp_path: Path,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Test validation warns for unusual file extension."""
-    audio_file = tmp_path / "test.xyz"
-    audio_file.write_bytes(b"fake audio data")
-
-    _validate_audio_file(audio_file)
-
-    assert "unusual extension" in caplog.text
-
-
-# Test transcribe_audio()
-
-
-@patch("python.infra.whisper.client._get_client")
-@patch("python.infra.whisper.client._validate_audio_file")
-def test_transcribe_audio_success(
-    mock_validate: Mock,
-    mock_get_client: Mock,
-    tmp_path: Path,
-) -> None:
+def test_transcribe_audio_success() -> None:
     """Test successful transcription with basic options."""
-    # Setup
-    audio_file = tmp_path / "test.mp3"
-    audio_file.write_bytes(b"fake audio data")
+    # Create AudioFile
+    audio_data = b"fake audio data"
+    audio_file = AudioFile(
+        path=Path("/fake/test.mp3"),
+        data=audio_data,
+        size=len(audio_data),
+        extension=".mp3",
+        filename="test.mp3",
+    )
 
     # Mock OpenAI client response
     mock_client = MagicMock()
-    mock_get_client.return_value = mock_client
-
     mock_response = MagicMock()
     mock_response.text = "Transcribed text"
     mock_response.language = "en"
@@ -157,11 +45,10 @@ def test_transcribe_audio_success(
         },
     ]
     mock_response.usage = None
-
     mock_client.audio.transcriptions.create.return_value = mock_response
 
-    # Execute
-    result = transcribe_audio(audio_file)
+    # Execute - use explicit client injection
+    result = transcribe_audio(audio_file, client=mock_client)
 
     # Verify
     assert isinstance(result, TranscriptionResult)
@@ -170,7 +57,7 @@ def test_transcribe_audio_success(
     assert result.duration == 10.5
     assert len(result.segments) == 1
     assert result.segments[0].text == "First segment"
-    assert result.audio_file == audio_file
+    assert result.audio_file == audio_file.path
     assert result.model_name == "whisper-1"
     assert result.usage is None
 
@@ -181,20 +68,18 @@ def test_transcribe_audio_success(
     assert call_kwargs["response_format"] == "verbose_json"
 
 
-@patch("python.infra.whisper.client._get_client")
-@patch("python.infra.whisper.client._validate_audio_file")
-def test_transcribe_audio_with_custom_options(
-    mock_validate: Mock,
-    mock_get_client: Mock,
-    tmp_path: Path,
-) -> None:
+def test_transcribe_audio_with_custom_options() -> None:
     """Test transcription with custom options."""
-    audio_file = tmp_path / "test.mp3"
-    audio_file.write_bytes(b"fake audio data")
+    audio_data = b"fake audio data"
+    audio_file = AudioFile(
+        path=Path("/fake/test.mp3"),
+        data=audio_data,
+        size=len(audio_data),
+        extension=".mp3",
+        filename="test.mp3",
+    )
 
     mock_client = MagicMock()
-    mock_get_client.return_value = mock_client
-
     mock_response = MagicMock()
     mock_response.text = "Custom transcription"
     mock_response.language = "es"
@@ -212,7 +97,7 @@ def test_transcribe_audio_with_custom_options(
         prompt="Custom prompt",
     )
 
-    result = transcribe_audio(audio_file, options)
+    result = transcribe_audio(audio_file, options, client=mock_client)
 
     assert result.text == "Custom transcription"
     assert result.language == "es"
@@ -227,21 +112,20 @@ def test_transcribe_audio_with_custom_options(
     assert call_kwargs["response_format"] == "verbose_json"  # Always forced
 
 
-@patch("python.infra.whisper.client._get_client")
-@patch("python.infra.whisper.client._validate_audio_file")
-def test_transcribe_audio_with_usage_data(
-    mock_validate: Mock,
-    mock_get_client: Mock,
-    tmp_path: Path,
-) -> None:
+def test_transcribe_audio_with_usage_data() -> None:
     """Test transcription with SDK usage data (UsageDuration)."""
     from openai.types.audio.transcription import UsageDuration
 
-    audio_file = tmp_path / "test.mp3"
-    audio_file.write_bytes(b"fake audio data")
+    audio_data = b"fake audio data"
+    audio_file = AudioFile(
+        path=Path("/fake/test.mp3"),
+        data=audio_data,
+        size=len(audio_data),
+        extension=".mp3",
+        filename="test.mp3",
+    )
 
     mock_client = MagicMock()
-    mock_get_client.return_value = mock_client
 
     # Mock response with SDK UsageDuration
     usage = UsageDuration(type="duration", seconds=120.5)
@@ -255,28 +139,27 @@ def test_transcribe_audio_with_usage_data(
 
     mock_client.audio.transcriptions.create.return_value = mock_response
 
-    result = transcribe_audio(audio_file)
+    result = transcribe_audio(audio_file, client=mock_client)
 
     assert result.usage is not None
     assert result.usage.type == "duration"
     assert result.usage.seconds == 120.5
 
 
-@patch("python.infra.whisper.client._get_client")
-@patch("python.infra.whisper.client._validate_audio_file")
-def test_transcribe_audio_with_token_usage(
-    mock_validate: Mock,
-    mock_get_client: Mock,
-    tmp_path: Path,
-) -> None:
+def test_transcribe_audio_with_token_usage() -> None:
     """Test transcription with SDK token-based usage data (UsageTokens)."""
     from openai.types.audio.transcription import UsageTokens
 
-    audio_file = tmp_path / "test.mp3"
-    audio_file.write_bytes(b"fake audio data")
+    audio_data = b"fake audio data"
+    audio_file = AudioFile(
+        path=Path("/fake/test.mp3"),
+        data=audio_data,
+        size=len(audio_data),
+        extension=".mp3",
+        filename="test.mp3",
+    )
 
     mock_client = MagicMock()
-    mock_get_client.return_value = mock_client
 
     # Mock response with SDK UsageTokens
     usage = UsageTokens(
@@ -295,7 +178,7 @@ def test_transcribe_audio_with_token_usage(
 
     mock_client.audio.transcriptions.create.return_value = mock_response
 
-    result = transcribe_audio(audio_file)
+    result = transcribe_audio(audio_file, client=mock_client)
 
     assert result.usage is not None
     assert result.usage.type == "tokens"
@@ -304,76 +187,67 @@ def test_transcribe_audio_with_token_usage(
     assert result.usage.total_tokens == 150
 
 
-@patch("python.infra.whisper.client._get_client")
-def test_transcribe_audio_validation_failure(
-    mock_get_client: Mock,
-) -> None:
-    """Test that audio validation errors are propagated."""
-    audio_file = Path("/nonexistent/file.mp3")
-
-    with pytest.raises(AudioFileError) as exc_info:
-        transcribe_audio(audio_file)
-
-    assert "Audio file not found" in str(exc_info.value)
-
-
-@patch("python.infra.whisper.client.get_settings")
-@patch("python.infra.whisper.client._validate_audio_file")
+@patch("python.infra.whisper.dependencies.get_settings")
 def test_transcribe_audio_api_key_error(
-    mock_validate: Mock,
     mock_settings: Mock,
-    tmp_path: Path,
 ) -> None:
-    """Test that missing API key errors are propagated."""
-    audio_file = tmp_path / "test.mp3"
-    audio_file.write_bytes(b"fake audio data")
+    """Test that missing API key raises OpenAIError during dependency injection."""
+    from openai import OpenAIError
+
+    audio_data = b"fake audio data"
+    audio_file = AudioFile(
+        path=Path("/fake/test.mp3"),
+        data=audio_data,
+        size=len(audio_data),
+        extension=".mp3",
+        filename="test.mp3",
+    )
 
     mock_settings.return_value.openai_api_key = None
 
-    with pytest.raises(WhisperError) as exc_info:
-        transcribe_audio(audio_file)
+    # DI layer propagates OpenAI SDK errors directly
+    with pytest.raises(OpenAIError) as exc_info:
+        transcribe_audio(audio_file)  # Will try to get client via DI
 
-    assert "OpenAI API key not configured" in str(exc_info.value)
+    assert "api_key" in str(exc_info.value).lower()
 
 
-@patch("python.infra.whisper.client._get_client")
-@patch("python.infra.whisper.client._validate_audio_file")
-def test_transcribe_audio_api_failure(
-    mock_validate: Mock,
-    mock_get_client: Mock,
-    tmp_path: Path,
-) -> None:
+def test_transcribe_audio_api_failure() -> None:
     """Test that API failures are wrapped in TranscriptionError."""
-    audio_file = tmp_path / "test.mp3"
-    audio_file.write_bytes(b"fake audio data")
+    audio_data = b"fake audio data"
+    audio_file = AudioFile(
+        path=Path("/fake/test.mp3"),
+        data=audio_data,
+        size=len(audio_data),
+        extension=".mp3",
+        filename="test.mp3",
+    )
 
     mock_client = MagicMock()
-    mock_get_client.return_value = mock_client
 
     # Simulate API error
     mock_client.audio.transcriptions.create.side_effect = Exception("API error")
 
     with pytest.raises(TranscriptionError) as exc_info:
-        transcribe_audio(audio_file)
+        transcribe_audio(audio_file, client=mock_client)
 
     assert "API transcription failed" in str(exc_info.value)
     assert "API error" in str(exc_info.value)
-    assert exc_info.value.file_path == str(audio_file)
+    assert exc_info.value.file_path == str(audio_file.path)
 
 
-@patch("python.infra.whisper.client._get_client")
-@patch("python.infra.whisper.client._validate_audio_file")
-def test_transcribe_audio_pydantic_validation(
-    mock_validate: Mock,
-    mock_get_client: Mock,
-    tmp_path: Path,
-) -> None:
+def test_transcribe_audio_pydantic_validation() -> None:
     """Test that Pydantic validates response data including segments."""
-    audio_file = tmp_path / "test.mp3"
-    audio_file.write_bytes(b"fake audio data")
+    audio_data = b"fake audio data"
+    audio_file = AudioFile(
+        path=Path("/fake/test.mp3"),
+        data=audio_data,
+        size=len(audio_data),
+        extension=".mp3",
+        filename="test.mp3",
+    )
 
     mock_client = MagicMock()
-    mock_get_client.return_value = mock_client
 
     # Response with valid segment structure
     mock_response = MagicMock()
@@ -398,7 +272,7 @@ def test_transcribe_audio_pydantic_validation(
 
     mock_client.audio.transcriptions.create.return_value = mock_response
 
-    result = transcribe_audio(audio_file)
+    result = transcribe_audio(audio_file, client=mock_client)
 
     # Pydantic should have validated and converted segments to Segment models
     assert len(result.segments) == 1
@@ -406,3 +280,67 @@ def test_transcribe_audio_pydantic_validation(
     assert result.segments[0].text == "Valid segment"
     assert result.segments[0].start == 0.0
     assert result.segments[0].end == 5.0
+
+
+# Test new dependency override pattern
+
+
+def test_transcribe_audio_with_dependency_override() -> None:
+    """Test using new override_dependency pattern for cleaner testing."""
+    from python.infra.whisper.dependencies import override_dependency
+
+    audio_data = b"fake audio data"
+    audio_file = AudioFile(
+        path=Path("/fake/test.mp3"),
+        data=audio_data,
+        size=len(audio_data),
+        extension=".mp3",
+        filename="test.mp3",
+    )
+
+    # Create mock client
+    mock_client = MagicMock()
+    mock_response = MagicMock()
+    mock_response.text = "Dependency override test"
+    mock_response.language = "en"
+    mock_response.duration = 5.0
+    mock_response.segments = []
+    mock_response.usage = None
+    mock_client.audio.transcriptions.create.return_value = mock_response
+
+    # Use override_dependency context manager
+    with override_dependency("client", lambda: mock_client):
+        result = transcribe_audio(audio_file)
+
+    assert result.text == "Dependency override test"
+    assert result.language == "en"
+    mock_client.audio.transcriptions.create.assert_called_once()
+
+
+def test_transcribe_audio_with_explicit_client_injection() -> None:
+    """Test explicitly passing client parameter (bypasses DI)."""
+    audio_data = b"fake audio data"
+    audio_file = AudioFile(
+        path=Path("/fake/test.mp3"),
+        data=audio_data,
+        size=len(audio_data),
+        extension=".mp3",
+        filename="test.mp3",
+    )
+
+    # Create mock client
+    mock_client = MagicMock()
+    mock_response = MagicMock()
+    mock_response.text = "Explicit injection test"
+    mock_response.language = "es"
+    mock_response.duration = 8.0
+    mock_response.segments = []
+    mock_response.usage = None
+    mock_client.audio.transcriptions.create.return_value = mock_response
+
+    # Explicitly pass client - no DI needed
+    result = transcribe_audio(audio_file, client=mock_client)
+
+    assert result.text == "Explicit injection test"
+    assert result.language == "es"
+    mock_client.audio.transcriptions.create.assert_called_once()

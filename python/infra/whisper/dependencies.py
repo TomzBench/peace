@@ -1,0 +1,161 @@
+"""Dependency injection for Whisper module.
+
+Provides a framework-agnostic dependency injection system for managing
+OpenAI client creation, settings access, and testing support.
+
+Examples:
+    Using dependency injection with decorator:
+    >>> from python.infra.whisper.dependencies import inject_deps
+    >>> @inject_deps
+    ... def my_function(client: OpenAI | None = None):
+    ...     # client is automatically injected
+    ...     return client.models.list()
+
+    Override dependencies for testing:
+    >>> from python.infra.whisper.dependencies import override_dependency
+    >>> mock_client = Mock()
+    >>> with override_dependency("client", mock_client):
+    ...     result = transcribe_audio(audio_file)
+"""
+
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
+from functools import wraps
+from typing import Any, TypeVar, cast
+
+from openai import OpenAI
+
+from python.config.settings import get_settings
+
+# Type variable for generic function decoration
+F = TypeVar("F", bound=Callable[..., Any])
+
+# Dependency registry for testing/overrides
+_dependency_overrides: dict[str, Callable[[], Any]] = {}
+
+
+# Dependency factory functions
+
+
+def get_openai_client() -> OpenAI:
+    """Get configured OpenAI client.
+
+    Creates a new client on each call. The OpenAI SDK will validate
+    the API key when making requests.
+
+    Returns:
+        Configured OpenAI client instance
+
+    Examples:
+        >>> client = get_openai_client()
+        >>> response = client.audio.transcriptions.create(...)
+    """
+    # Check for override first (testing)
+    if "client" in _dependency_overrides:
+        return cast("OpenAI", _dependency_overrides["client"]())
+
+    # Get settings (check for override)
+    if "settings" in _dependency_overrides:
+        settings = _dependency_overrides["settings"]()
+    else:
+        settings = get_settings()
+
+    # Let OpenAI SDK handle validation of API key
+    return OpenAI(
+        api_key=settings.openai_api_key,
+        organization=settings.openai_organization,
+    )
+
+
+# Dependency injection decorator
+
+
+def inject_deps(func: F) -> F:
+    """Decorator to inject dependencies into function parameters.
+
+    Automatically provides dependencies for parameters with None defaults.
+    Supported dependencies:
+    - client: OpenAI -> get_openai_client()
+    - settings: Settings -> get_settings()
+
+    Args:
+        func: Function to decorate
+
+    Returns:
+        Decorated function with dependency injection
+
+    Examples:
+        >>> @inject_deps
+        ... def transcribe(audio: AudioFile, client: OpenAI | None = None):
+        ...     # client is automatically provided if None
+        ...     return client.audio.transcriptions.create(...)
+    """
+
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        # Inject client if not provided
+        if "client" in kwargs and kwargs["client"] is None:
+            kwargs["client"] = get_openai_client()
+        elif "client" not in kwargs:
+            # Check function signature for client parameter
+            import inspect
+
+            sig = inspect.signature(func)
+            if "client" in sig.parameters:
+                param = sig.parameters["client"]
+                # Only inject if default is None
+                if param.default is None or param.default == inspect.Parameter.empty:
+                    kwargs["client"] = get_openai_client()
+
+        # Inject settings if not provided
+        if "settings" in kwargs and kwargs["settings"] is None:
+            kwargs["settings"] = get_settings()
+        elif "settings" not in kwargs:
+            import inspect
+
+            sig = inspect.signature(func)
+            if "settings" in sig.parameters:
+                param = sig.parameters["settings"]
+                if param.default is None or param.default == inspect.Parameter.empty:
+                    kwargs["settings"] = get_settings()
+
+        return func(*args, **kwargs)
+
+    return wrapper  # type: ignore[return-value]
+
+
+# Testing support
+
+
+@contextmanager
+def override_dependency(name: str, factory: Callable[[], Any]) -> Generator[None, None, None]:
+    """Override a dependency for testing.
+
+    Args:
+        name: Dependency name ("client" or "settings")
+        factory: Callable that returns the mock/override value
+
+    Yields:
+        None
+
+    Examples:
+        >>> mock_client = Mock()
+        >>> with override_dependency("client", lambda: mock_client):
+        ...     result = transcribe_audio(audio_file)
+        ...     # Uses mock_client instead of real OpenAI client
+    """
+    # Save previous override if exists (for nested overrides)
+    previous = _dependency_overrides.get(name)
+    _dependency_overrides[name] = factory
+    try:
+        yield
+    finally:
+        # Restore previous override or remove if there wasn't one
+        if previous is not None:
+            _dependency_overrides[name] = previous
+        else:
+            _dependency_overrides.pop(name, None)
+
+
+def clear_overrides() -> None:
+    _dependency_overrides.clear()

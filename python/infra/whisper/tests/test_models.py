@@ -153,14 +153,6 @@ def test_response_options_defaults() -> None:
     assert options.stream is False
 
 
-def test_response_options_custom() -> None:
-    """Test ResponseOptions with custom values."""
-    options = ResponseOptions(response_format="json", stream=True)
-
-    assert options.response_format == "json"
-    assert options.stream is True
-
-
 def test_usage_duration_type() -> None:
     """Test SDK Usage with duration-based billing (UsageDuration)."""
     from openai.types.audio.transcription import UsageDuration
@@ -197,7 +189,6 @@ def test_transcription_options_defaults() -> None:
     assert options.prompt is None
     assert options.temperature == 0.0
     assert options.timestamp_granularities is None
-    assert isinstance(options.response, ResponseOptions)
     assert isinstance(options.request_config, OpenAIRequestConfig)
 
 
@@ -209,7 +200,6 @@ def test_transcription_options_custom() -> None:
         prompt="Transcription test",
         temperature=0.2,
         timestamp_granularities=["word", "segment"],
-        response=ResponseOptions(response_format="json"),
         request_config=OpenAIRequestConfig(timeout=60.0),
     )
 
@@ -218,7 +208,6 @@ def test_transcription_options_custom() -> None:
     assert options.prompt == "Transcription test"
     assert options.temperature == 0.2
     assert options.timestamp_granularities == ["word", "segment"]
-    assert options.response.response_format == "json"
     assert options.request_config.timeout == 60.0
 
 
@@ -229,7 +218,6 @@ def test_translate_options_defaults() -> None:
     assert options.model == "whisper-1"
     assert options.prompt is None
     assert options.temperature == 0.0
-    assert isinstance(options.response, ResponseOptions)
     assert isinstance(options.request_config, OpenAIRequestConfig)
 
 
@@ -259,8 +247,6 @@ def test_flatten_options_basic() -> None:
     assert result["model"] == "whisper-1"
     assert result["language"] == "en"
     assert result["temperature"] == 0.2
-    assert result["response_format"] == "verbose_json"  # From ResponseOptions
-    assert result["stream"] is False  # From ResponseOptions
     assert "response" not in result  # Nested object flattened
     assert "request_config" not in result  # Nested object flattened
 
@@ -269,15 +255,12 @@ def test_flatten_options_with_nested() -> None:
     """Test flatten_options with custom nested options."""
     options = TranscriptionOptions(
         model="gpt-4o-transcribe",
-        response=ResponseOptions(response_format="json", stream=True),
         request_config=OpenAIRequestConfig(timeout=30.0, extra_headers={"X-Test": "value"}),
     )
 
     result = flatten_options(options)
 
     assert result["model"] == "gpt-4o-transcribe"
-    assert result["response_format"] == "json"
-    assert result["stream"] is True
     assert result["timeout"] == 30.0
     assert result["extra_headers"] == {"X-Test": "value"}
 
@@ -310,4 +293,3 @@ def test_flatten_options_exclude_fields() -> None:
     assert result["model"] == "whisper-1"
     assert result["language"] == "en"
     assert "temperature" not in result  # Excluded
-    assert result["response_format"] == "verbose_json"  # From nested ResponseOptions
