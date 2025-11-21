@@ -4,7 +4,7 @@ import logging
 from dataclasses import asdict
 from datetime import datetime
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 from .dependencies import inject_deps
 from .exceptions import TranscriptionError
@@ -20,17 +20,17 @@ logger = logging.getLogger(__name__)
 
 
 @inject_deps
-def transcribe_audio(
+async def transcribe_audio(
     audio_file: AudioFile,
     options: TranscriptionOptions | None = None,
-    client: OpenAI | None = None,
+    client: AsyncOpenAI | None = None,
 ) -> TranscriptionResult:
     """Transcribe audio file using OpenAI Whisper API.
 
     Args:
         audio_file: AudioFile with validated audio data and metadata
         options: Transcription options with composable request/response config
-        client: OpenAI client (auto-injected if None via @inject_deps)
+        client: AsyncOpenAI client (auto-injected if None via @inject_deps)
 
     Returns:
         TranscriptionResult with text, segments, metadata, and usage info
@@ -42,12 +42,12 @@ def transcribe_audio(
     logger.info(f"Transcribing audio file via OpenAI API: {audio_file.filename}")
 
     # Ensure client is injected (decorator should handle this)
-    assert client is not None, "OpenAI client must be provided or injected"
+    assert client is not None, "AsyncOpenAI client must be provided or injected"
 
     # Perform transcription
     try:
         # Pass file tuple directly to SDK via .file property
-        response = client.audio.transcriptions.create(
+        response = await client.audio.transcriptions.create(
             file=audio_file.file, **flatten_options(options), **asdict(ResponseOptions())
         )
 

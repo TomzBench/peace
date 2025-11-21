@@ -23,7 +23,7 @@ from contextlib import contextmanager
 from functools import wraps
 from typing import Any, TypeVar, cast
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 from python.config.settings import get_settings
 
@@ -37,22 +37,22 @@ _dependency_overrides: dict[str, Callable[[], Any]] = {}
 # Dependency factory functions
 
 
-def get_openai_client() -> OpenAI:
-    """Get configured OpenAI client.
+def get_openai_client() -> AsyncOpenAI:
+    """Get configured async OpenAI client.
 
     Creates a new client on each call. The OpenAI SDK will validate
     the API key when making requests.
 
     Returns:
-        Configured OpenAI client instance
+        Configured AsyncOpenAI client instance
 
     Examples:
         >>> client = get_openai_client()
-        >>> response = client.audio.transcriptions.create(...)
+        >>> response = await client.audio.transcriptions.create(...)
     """
     # Check for override first (testing)
     if "client" in _dependency_overrides:
-        return cast("OpenAI", _dependency_overrides["client"]())
+        return cast("AsyncOpenAI", _dependency_overrides["client"]())
 
     # Get settings (check for override)
     if "settings" in _dependency_overrides:
@@ -61,7 +61,7 @@ def get_openai_client() -> OpenAI:
         settings = get_settings()
 
     # Let OpenAI SDK handle validation of API key
-    return OpenAI(
+    return AsyncOpenAI(
         api_key=settings.openai_api_key,
         organization=settings.openai_organization,
     )
@@ -75,31 +75,31 @@ def inject_deps(func: F) -> F:
 
     Automatically provides dependencies for parameters with None defaults.
     Supported dependencies:
-    - client: OpenAI -> get_openai_client()
+    - client: AsyncOpenAI -> get_openai_client()
     - settings: Settings -> get_settings()
 
     Args:
-        func: Function to decorate
+        func: Function to decorate (can be sync or async)
 
     Returns:
         Decorated function with dependency injection
 
     Examples:
         >>> @inject_deps
-        ... def transcribe(audio: AudioFile, client: OpenAI | None = None):
+        ... async def transcribe(audio: AudioFile, client: AsyncOpenAI | None = None):
         ...     # client is automatically provided if None
-        ...     return client.audio.transcriptions.create(...)
+        ...     return await client.audio.transcriptions.create(...)
     """
+    import inspect
+
+    is_async = inspect.iscoroutinefunction(func)
 
     @wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
+    async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
         # Inject client if not provided
         if "client" in kwargs and kwargs["client"] is None:
             kwargs["client"] = get_openai_client()
         elif "client" not in kwargs:
-            # Check function signature for client parameter
-            import inspect
-
             sig = inspect.signature(func)
             if "client" in sig.parameters:
                 param = sig.parameters["client"]
@@ -111,8 +111,31 @@ def inject_deps(func: F) -> F:
         if "settings" in kwargs and kwargs["settings"] is None:
             kwargs["settings"] = get_settings()
         elif "settings" not in kwargs:
-            import inspect
+            sig = inspect.signature(func)
+            if "settings" in sig.parameters:
+                param = sig.parameters["settings"]
+                if param.default is None or param.default == inspect.Parameter.empty:
+                    kwargs["settings"] = get_settings()
 
+        return await func(*args, **kwargs)
+
+    @wraps(func)
+    def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+        # Inject client if not provided
+        if "client" in kwargs and kwargs["client"] is None:
+            kwargs["client"] = get_openai_client()
+        elif "client" not in kwargs:
+            sig = inspect.signature(func)
+            if "client" in sig.parameters:
+                param = sig.parameters["client"]
+                # Only inject if default is None
+                if param.default is None or param.default == inspect.Parameter.empty:
+                    kwargs["client"] = get_openai_client()
+
+        # Inject settings if not provided
+        if "settings" in kwargs and kwargs["settings"] is None:
+            kwargs["settings"] = get_settings()
+        elif "settings" not in kwargs:
             sig = inspect.signature(func)
             if "settings" in sig.parameters:
                 param = sig.parameters["settings"]
@@ -121,7 +144,7 @@ def inject_deps(func: F) -> F:
 
         return func(*args, **kwargs)
 
-    return wrapper  # type: ignore[return-value]
+    return async_wrapper if is_async else sync_wrapper  # type: ignore[return-value]
 
 
 # Testing support

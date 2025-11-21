@@ -3,7 +3,7 @@
 from unittest.mock import Mock, patch
 
 import pytest
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 from ..dependencies import (
     clear_overrides,
@@ -14,7 +14,7 @@ from ..dependencies import (
 
 
 def test_get_openai_client_success() -> None:
-    """Test creating OpenAI client with valid API key."""
+    """Test creating AsyncOpenAI client with valid API key."""
     # Create mock settings with proper attribute setting
     mock_settings = Mock()
     mock_settings.openai_api_key = "test-key"
@@ -24,7 +24,7 @@ def test_get_openai_client_success() -> None:
     with override_dependency("settings", lambda: mock_settings):
         client = get_openai_client()
 
-        assert isinstance(client, OpenAI)
+        assert isinstance(client, AsyncOpenAI)
         assert client.api_key == "test-key"
         assert client.organization == "test-org"
 
@@ -45,7 +45,7 @@ def test_get_openai_client_missing_api_key(mock_settings: Mock) -> None:
 
 def test_override_dependency_client() -> None:
     """Test overriding client dependency."""
-    mock_client = Mock(spec=OpenAI)
+    mock_client = Mock(spec=AsyncOpenAI)
 
     with override_dependency("client", lambda: mock_client):
         client = get_openai_client()
@@ -60,12 +60,12 @@ def test_override_dependency_client() -> None:
     with override_dependency("settings", lambda: mock_settings):
         client = get_openai_client()
         assert client is not mock_client
-        assert isinstance(client, OpenAI)
+        assert isinstance(client, AsyncOpenAI)
 
 
 def test_clear_overrides() -> None:
     """Test clearing dependency overrides."""
-    mock_client = Mock(spec=OpenAI)
+    mock_client = Mock(spec=AsyncOpenAI)
 
     # Create mock settings with proper attribute setting
     mock_settings = Mock()
@@ -98,11 +98,11 @@ def test_inject_deps_decorator_with_client() -> None:
     """Test @inject_deps decorator injects client."""
 
     @inject_deps
-    def test_function(client: OpenAI | None = None) -> OpenAI:
+    def test_function(client: AsyncOpenAI | None = None) -> AsyncOpenAI:
         assert client is not None
         return client
 
-    mock_client = Mock(spec=OpenAI)
+    mock_client = Mock(spec=AsyncOpenAI)
 
     with override_dependency("client", lambda: mock_client):
         result = test_function()
@@ -113,12 +113,12 @@ def test_inject_deps_decorator_with_explicit_client() -> None:
     """Test @inject_deps decorator respects explicitly passed client."""
 
     @inject_deps
-    def test_function(client: OpenAI | None = None) -> OpenAI:
+    def test_function(client: AsyncOpenAI | None = None) -> AsyncOpenAI:
         assert client is not None
         return client
 
-    mock_client = Mock(spec=OpenAI)
-    explicit_client = Mock(spec=OpenAI)
+    mock_client = Mock(spec=AsyncOpenAI)
+    explicit_client = Mock(spec=AsyncOpenAI)
 
     with override_dependency("client", lambda: mock_client):
         # Explicitly passed client should override DI
@@ -141,7 +141,7 @@ def test_inject_deps_decorator_without_matching_params() -> None:
 
 def test_multiple_overrides() -> None:
     """Test multiple dependency overrides simultaneously."""
-    mock_client = Mock(spec=OpenAI)
+    mock_client = Mock(spec=AsyncOpenAI)
     mock_settings = Mock()
 
     with (
@@ -154,8 +154,8 @@ def test_multiple_overrides() -> None:
 
 def test_nested_overrides() -> None:
     """Test nested dependency overrides."""
-    mock_client1 = Mock(spec=OpenAI)
-    mock_client2 = Mock(spec=OpenAI)
+    mock_client1 = Mock(spec=AsyncOpenAI)
+    mock_client2 = Mock(spec=AsyncOpenAI)
 
     with override_dependency("client", lambda: mock_client1):
         client = get_openai_client()
