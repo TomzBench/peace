@@ -5,6 +5,9 @@ from pathlib import Path
 
 from python.infra.whisper.models import (
     Segment,
+    TranscriptionApiOptions,
+    TranscriptionBaseOptions,
+    TranscriptionLocalOptions,
     TranscriptionOptions,
     TranscriptionResult,
 )
@@ -114,20 +117,68 @@ def test_transcription_result_with_translation() -> None:
     assert result.translation == "Translated text"
 
 
-def test_transcription_options_defaults() -> None:
-    """Test TranscriptionOptions default values."""
-    options = TranscriptionOptions()
+def test_transcription_base_options_defaults() -> None:
+    """Test TranscriptionBaseOptions default values."""
+    options = TranscriptionBaseOptions()
 
-    assert options.model == "base"
     assert options.language is None
-    assert options.task == "transcribe"
     assert options.temperature == 0.0
+    assert options.initial_prompt is None
+
+
+def test_transcription_base_options_custom() -> None:
+    """Test TranscriptionBaseOptions with custom values."""
+    options = TranscriptionBaseOptions(
+        language="en",
+        temperature=0.5,
+        initial_prompt="This is a test",
+    )
+
+    assert options.language == "en"
+    assert options.temperature == 0.5
+    assert options.initial_prompt == "This is a test"
+
+
+def test_transcription_api_options_defaults() -> None:
+    """Test TranscriptionApiOptions default values."""
+    options = TranscriptionApiOptions()
+
+    # Base options
+    assert options.language is None
+    assert options.temperature == 0.0
+    assert options.initial_prompt is None
+
+
+def test_transcription_api_options_custom() -> None:
+    """Test TranscriptionApiOptions with custom values."""
+    options = TranscriptionApiOptions(
+        language="en",
+        temperature=0.2,
+        initial_prompt="Transcription test",
+    )
+
+    assert options.language == "en"
+    assert options.temperature == 0.2
+    assert options.initial_prompt == "Transcription test"
+
+
+def test_transcription_local_options_defaults() -> None:
+    """Test TranscriptionLocalOptions default values."""
+    options = TranscriptionLocalOptions()
+
+    # Base options
+    assert options.language is None
+    assert options.temperature == 0.0
+    assert options.initial_prompt is None
+
+    # Local-specific options
+    assert options.model == "base"
+    assert options.task == "transcribe"
     assert options.best_of is None
     assert options.beam_size is None
     assert options.patience is None
     assert options.length_penalty is None
     assert options.suppress_tokens == "-1"
-    assert options.initial_prompt is None
     assert options.condition_on_previous_text is True
     assert options.fp16 is True
     assert options.compression_ratio_threshold is None
@@ -137,29 +188,34 @@ def test_transcription_options_defaults() -> None:
     assert options.whisper_kwargs == {}
 
 
-def test_transcription_options_custom() -> None:
-    """Test TranscriptionOptions with custom values."""
-    options = TranscriptionOptions(
-        model="small",
+def test_transcription_local_options_custom() -> None:
+    """Test TranscriptionLocalOptions with custom values."""
+    options = TranscriptionLocalOptions(
         language="en",
-        task="translate",
         temperature=0.5,
+        model="small",
+        task="translate",
         fp16=False,
         verbose=True,
     )
 
-    assert options.model == "small"
     assert options.language == "en"
-    assert options.task == "translate"
     assert options.temperature == 0.5
+    assert options.model == "small"
+    assert options.task == "translate"
     assert options.fp16 is False
     assert options.verbose is True
 
 
-def test_transcription_options_with_kwargs() -> None:
-    """Test TranscriptionOptions with additional kwargs."""
-    options = TranscriptionOptions(
+def test_transcription_local_options_with_kwargs() -> None:
+    """Test TranscriptionLocalOptions with additional kwargs."""
+    options = TranscriptionLocalOptions(
         whisper_kwargs={"custom_param": "value", "another_param": 42}
     )
 
     assert options.whisper_kwargs == {"custom_param": "value", "another_param": 42}
+
+
+def test_transcription_options_is_alias() -> None:
+    """Test that TranscriptionOptions is an alias for TranscriptionApiOptions."""
+    assert TranscriptionOptions is TranscriptionApiOptions

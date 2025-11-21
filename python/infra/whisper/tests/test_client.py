@@ -19,7 +19,7 @@ from python.infra.whisper.exceptions import (
     TranscriptionError,
     WhisperError,
 )
-from python.infra.whisper.models import TranscriptionOptions
+from python.infra.whisper.models import TranscriptionApiOptions
 
 
 def test_validate_audio_file_exists(temp_audio_file: Path) -> None:
@@ -217,15 +217,14 @@ def test_transcribe_audio_with_options(
     mock_get_client.return_value = mock_client
 
     # Transcribe with options
-    options = TranscriptionOptions(
-        model="small",  # This will be ignored (API only has whisper-1)
+    options = TranscriptionApiOptions(
         language="en",
         temperature=0.5,
         initial_prompt="This is a test",
     )
     result = transcribe_audio(temp_audio_file, options)
 
-    # Verify result - model should be whisper-1 regardless of input
+    # Verify result - API always uses whisper-1 model
     assert result.model_name == "whisper-1"
 
     # Verify API was called with correct parameters
@@ -320,8 +319,8 @@ def test_transcribe_and_translate_with_options(
     mock_client.audio.translations.create.return_value = mock_response
     mock_get_client.return_value = mock_client
 
-    # Try to set task to "transcribe", should use translations endpoint anyway
-    options = TranscriptionOptions(task="transcribe", model="small")
+    # Use API options - translation endpoint handles language detection automatically
+    options = TranscriptionApiOptions(temperature=0.3)
     result = transcribe_and_translate(temp_audio_file, options)
 
     # Verify translations endpoint was used

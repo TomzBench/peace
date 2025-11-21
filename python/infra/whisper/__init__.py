@@ -16,8 +16,8 @@ Examples:
     >>> print(f"Text: {result.text}")
 
     Transcribe with language and temperature:
-    >>> from python.infra.whisper import transcribe_audio, TranscriptionOptions
-    >>> opts = TranscriptionOptions(language="en", temperature=0.2)
+    >>> from python.infra.whisper import transcribe_audio, TranscriptionApiOptions
+    >>> opts = TranscriptionApiOptions(language="en", temperature=0.2)
     >>> result = transcribe_audio(Path("audio.mp3"), opts)
 
     Transcribe and translate to English:
@@ -48,6 +48,9 @@ from python.infra.whisper.exceptions import (
 )
 from python.infra.whisper.models import (
     Segment,
+    TranscriptionApiOptions,
+    TranscriptionBaseOptions,
+    TranscriptionLocalOptions,
     TranscriptionOptions,
     TranscriptionResult,
 )
@@ -56,7 +59,10 @@ __all__ = [
     "AudioFileError",
     "ModelLoadError",
     "Segment",
+    "TranscriptionApiOptions",
+    "TranscriptionBaseOptions",
     "TranscriptionError",
+    "TranscriptionLocalOptions",
     "TranscriptionOptions",
     "TranscriptionResult",
     "WhisperError",

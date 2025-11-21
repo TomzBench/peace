@@ -16,7 +16,7 @@ from python.infra.whisper.exceptions import (
 )
 from python.infra.whisper.models import (
     Segment,
-    TranscriptionOptions,
+    TranscriptionApiOptions,
     TranscriptionResult,
 )
 
@@ -120,13 +120,13 @@ def _parse_segments(segments_data: list[dict[str, Any]]) -> list[Segment]:
 
 def transcribe_audio(
     audio_path: Path,
-    options: TranscriptionOptions | None = None,
+    options: TranscriptionApiOptions | None = None,
 ) -> TranscriptionResult:
     """Transcribe audio file using OpenAI Whisper API.
 
     Args:
         audio_path: Path to audio file (mp3, wav, m4a, etc.) - max 25MB
-        options: Transcription options (language, temperature, prompt, etc.)
+        options: API transcription options (language, temperature, initial_prompt)
 
     Returns:
         TranscriptionResult with full text, segments, and metadata
@@ -142,15 +142,15 @@ def transcribe_audio(
         >>> print(f"Detected language: {result.language}")
         >>> print(f"Text: {result.text}")
 
-        >>> opts = TranscriptionOptions(language="en", temperature=0.2)
+        >>> opts = TranscriptionApiOptions(language="en", temperature=0.2)
         >>> result = transcribe_audio(Path("audio.mp3"), opts)
 
     Note:
-        OpenAI API only supports the "whisper-1" model. The model parameter in
-        TranscriptionOptions is ignored. Advanced parameters (beam_size, best_of,
-        etc.) from the local library are not supported by the API.
+        OpenAI API only supports the "whisper-1" model. Advanced parameters
+        (beam_size, best_of, etc.) are only available with TranscriptionLocalOptions
+        when running Whisper locally.
     """
-    options = options or TranscriptionOptions()
+    options = options or TranscriptionApiOptions()
     audio_path = Path(audio_path)
 
     logger.info(f"Transcribing audio file via OpenAI API: {audio_path}")
@@ -223,7 +223,7 @@ def transcribe_audio(
 
 def transcribe_and_translate(
     audio_path: Path,
-    options: TranscriptionOptions | None = None,
+    options: TranscriptionApiOptions | None = None,
 ) -> TranscriptionResult:
     """Transcribe and translate audio to English using OpenAI Whisper API.
 
@@ -232,7 +232,7 @@ def transcribe_and_translate(
 
     Args:
         audio_path: Path to audio file - max 25MB
-        options: Transcription options (temperature, prompt, etc.)
+        options: API transcription options (temperature, initial_prompt)
 
     Returns:
         TranscriptionResult with English translation in the text field
@@ -247,10 +247,10 @@ def transcribe_and_translate(
         >>> print(f"English translation: {result.text}")
 
     Note:
-        The task parameter in TranscriptionOptions is ignored - the API uses
-        a separate endpoint for translations.
+        The language parameter is not used for translation - the API automatically
+        detects the source language and translates to English.
     """
-    options = options or TranscriptionOptions()
+    options = options or TranscriptionApiOptions()
     audio_path = Path(audio_path)
 
     logger.info(f"Transcribing and translating to English via OpenAI API: {audio_path}")
