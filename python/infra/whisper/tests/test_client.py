@@ -294,7 +294,7 @@ def test_transcribe_and_translate(
 
     # Verify result
     assert result.text == "Hello, this is an English translation."
-    assert result.translation == "Hello, this is an English translation."
+    assert result.translation is None  # Translation endpoint only returns translated text
     assert result.language == "es"  # Original language
 
     # Verify translations endpoint was called (not transcriptions)
@@ -325,4 +325,5 @@ def test_transcribe_and_translate_with_options(
 
     # Verify translations endpoint was used
     mock_client.audio.translations.create.assert_called_once()
-    assert result.translation is not None  # Ensure translation field is set
+    assert result.translation is None  # Translation endpoint only returns translated text
+    assert result.text == "Hello, this is an English translation."  # Translation in text field

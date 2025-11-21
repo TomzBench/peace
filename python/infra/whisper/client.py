@@ -168,15 +168,14 @@ def transcribe_audio(
     api_params: dict[str, Any] = {
         "model": "whisper-1",  # Only model available
         "response_format": "verbose_json",  # Get segments and metadata
+        **{
+            k: v for k, v in {
+                "language": options.language,
+                "temperature": options.temperature if options.temperature != 0.0 else None,
+                "prompt": options.initial_prompt,  # API uses "prompt" not "initial_prompt"
+            }.items() if v is not None
+        }
     }
-
-    # Add optional parameters supported by API
-    if options.language:
-        api_params["language"] = options.language
-    if options.temperature != 0.0:
-        api_params["temperature"] = options.temperature
-    if options.initial_prompt:
-        api_params["prompt"] = options.initial_prompt  # Note: renamed from initial_prompt
 
     # Perform transcription
     try:
@@ -268,13 +267,13 @@ def transcribe_and_translate(
     api_params: dict[str, Any] = {
         "model": "whisper-1",
         "response_format": "verbose_json",
+        **{
+            k: v for k, v in {
+                "temperature": options.temperature if options.temperature != 0.0 else None,
+                "prompt": options.initial_prompt,  # API uses "prompt" not "initial_prompt"
+            }.items() if v is not None
+        }
     }
-
-    # Add optional parameters supported by API
-    if options.temperature != 0.0:
-        api_params["temperature"] = options.temperature
-    if options.initial_prompt:
-        api_params["prompt"] = options.initial_prompt
 
     # Perform translation
     try:
@@ -296,7 +295,7 @@ def transcribe_and_translate(
             model_name="whisper-1",
             transcription_timestamp=datetime.now(),
             duration=response.duration,
-            translation=response.text,  # Store translation
+            translation=None,
         )
 
         logger.info(
