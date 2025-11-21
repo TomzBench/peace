@@ -4,19 +4,21 @@ from datetime import datetime
 from pathlib import Path
 
 from python.infra.whisper.models import (
+    OpenAIRequestConfig,
+    ResponseOptions,
     Segment,
-    TranscriptionApiOptions,
-    TranscriptionBaseOptions,
-    TranscriptionLocalOptions,
     TranscriptionOptions,
     TranscriptionResult,
+    TranslateOptions,
+    flatten_options,
 )
 
 
 def test_segment_creation() -> None:
-    """Test creating a Segment model."""
+    """Test creating a Segment model (SDK TranscriptionSegment)."""
     segment = Segment(
         id=0,
+        seek=0,  # SDK field
         start=0.0,
         end=2.5,
         text="Hello world",
@@ -28,6 +30,7 @@ def test_segment_creation() -> None:
     )
 
     assert segment.id == 0
+    assert segment.seek == 0
     assert segment.start == 0.0
     assert segment.end == 2.5
     assert segment.text == "Hello world"
@@ -64,10 +67,11 @@ def test_transcription_result_creation() -> None:
 
 
 def test_transcription_result_with_segments() -> None:
-    """Test TranscriptionResult with segments."""
+    """Test TranscriptionResult with segments (SDK TranscriptionSegment)."""
     segments = [
         Segment(
             id=0,
+            seek=0,
             start=0.0,
             end=2.0,
             text="First segment",
@@ -79,6 +83,7 @@ def test_transcription_result_with_segments() -> None:
         ),
         Segment(
             id=1,
+            seek=100,
             start=2.0,
             end=4.0,
             text="Second segment",
@@ -117,105 +122,192 @@ def test_transcription_result_with_translation() -> None:
     assert result.translation == "Translated text"
 
 
-def test_transcription_base_options_defaults() -> None:
-    """Test TranscriptionBaseOptions default values."""
-    options = TranscriptionBaseOptions()
+def test_openai_request_config_defaults() -> None:
+    """Test OpenAIRequestConfig default values."""
+    config = OpenAIRequestConfig()
 
-    assert options.language is None
-    assert options.temperature == 0.0
-    assert options.initial_prompt is None
+    assert config.extra_headers is None
+    assert config.extra_query is None
+    assert config.extra_body is None
+    assert config.timeout is None
 
 
-def test_transcription_base_options_custom() -> None:
-    """Test TranscriptionBaseOptions with custom values."""
-    options = TranscriptionBaseOptions(
-        language="en",
-        temperature=0.5,
-        initial_prompt="This is a test",
+def test_openai_request_config_custom() -> None:
+    """Test OpenAIRequestConfig with custom values."""
+    config = OpenAIRequestConfig(
+        extra_headers={"X-Custom": "value"},
+        extra_query={"param": "test"},
+        timeout=30.0,
     )
 
-    assert options.language == "en"
-    assert options.temperature == 0.5
-    assert options.initial_prompt == "This is a test"
+    assert config.extra_headers == {"X-Custom": "value"}
+    assert config.extra_query == {"param": "test"}
+    assert config.timeout == 30.0
 
 
-def test_transcription_api_options_defaults() -> None:
-    """Test TranscriptionApiOptions default values."""
-    options = TranscriptionApiOptions()
+def test_response_options_defaults() -> None:
+    """Test ResponseOptions default values."""
+    options = ResponseOptions()
 
-    # Base options
+    assert options.response_format == "verbose_json"
+    assert options.stream is False
+
+
+def test_response_options_custom() -> None:
+    """Test ResponseOptions with custom values."""
+    options = ResponseOptions(response_format="json", stream=True)
+
+    assert options.response_format == "json"
+    assert options.stream is True
+
+
+def test_usage_duration_type() -> None:
+    """Test SDK Usage with duration-based billing (UsageDuration)."""
+    from openai.types.audio.transcription import UsageDuration
+
+    usage = UsageDuration(type="duration", seconds=120.5)
+
+    assert usage.type == "duration"
+    assert usage.seconds == 120.5
+
+
+def test_usage_tokens_type() -> None:
+    """Test SDK Usage with token-based billing (UsageTokens)."""
+    from openai.types.audio.transcription import UsageTokens
+
+    usage = UsageTokens(
+        type="tokens",
+        input_tokens=100,
+        output_tokens=50,
+        total_tokens=150,
+    )
+
+    assert usage.type == "tokens"
+    assert usage.input_tokens == 100
+    assert usage.output_tokens == 50
+    assert usage.total_tokens == 150
+
+
+def test_transcription_options_defaults() -> None:
+    """Test TranscriptionOptions default values."""
+    options = TranscriptionOptions()
+
+    assert options.model == "whisper-1"
     assert options.language is None
+    assert options.prompt is None
     assert options.temperature == 0.0
-    assert options.initial_prompt is None
+    assert options.timestamp_granularities is None
+    assert isinstance(options.response, ResponseOptions)
+    assert isinstance(options.request_config, OpenAIRequestConfig)
 
 
-def test_transcription_api_options_custom() -> None:
-    """Test TranscriptionApiOptions with custom values."""
-    options = TranscriptionApiOptions(
+def test_transcription_options_custom() -> None:
+    """Test TranscriptionOptions with custom values."""
+    options = TranscriptionOptions(
+        model="gpt-4o-transcribe",
+        language="en",
+        prompt="Transcription test",
+        temperature=0.2,
+        timestamp_granularities=["word", "segment"],
+        response=ResponseOptions(response_format="json"),
+        request_config=OpenAIRequestConfig(timeout=60.0),
+    )
+
+    assert options.model == "gpt-4o-transcribe"
+    assert options.language == "en"
+    assert options.prompt == "Transcription test"
+    assert options.temperature == 0.2
+    assert options.timestamp_granularities == ["word", "segment"]
+    assert options.response.response_format == "json"
+    assert options.request_config.timeout == 60.0
+
+
+def test_translate_options_defaults() -> None:
+    """Test TranslateOptions default values."""
+    options = TranslateOptions()
+
+    assert options.model == "whisper-1"
+    assert options.prompt is None
+    assert options.temperature == 0.0
+    assert isinstance(options.response, ResponseOptions)
+    assert isinstance(options.request_config, OpenAIRequestConfig)
+
+
+def test_translate_options_custom() -> None:
+    """Test TranslateOptions with custom values."""
+    options = TranslateOptions(
+        model="whisper-1",
+        prompt="Translation prompt",
+        temperature=0.3,
+    )
+
+    assert options.model == "whisper-1"
+    assert options.prompt == "Translation prompt"
+    assert options.temperature == 0.3
+
+
+def test_flatten_options_basic() -> None:
+    """Test flatten_options with basic TranscriptionOptions."""
+    options = TranscriptionOptions(
+        model="whisper-1",
         language="en",
         temperature=0.2,
-        initial_prompt="Transcription test",
     )
 
-    assert options.language == "en"
-    assert options.temperature == 0.2
-    assert options.initial_prompt == "Transcription test"
+    result = flatten_options(options)
+
+    assert result["model"] == "whisper-1"
+    assert result["language"] == "en"
+    assert result["temperature"] == 0.2
+    assert result["response_format"] == "verbose_json"  # From ResponseOptions
+    assert result["stream"] is False  # From ResponseOptions
+    assert "response" not in result  # Nested object flattened
+    assert "request_config" not in result  # Nested object flattened
 
 
-def test_transcription_local_options_defaults() -> None:
-    """Test TranscriptionLocalOptions default values."""
-    options = TranscriptionLocalOptions()
+def test_flatten_options_with_nested() -> None:
+    """Test flatten_options with custom nested options."""
+    options = TranscriptionOptions(
+        model="gpt-4o-transcribe",
+        response=ResponseOptions(response_format="json", stream=True),
+        request_config=OpenAIRequestConfig(timeout=30.0, extra_headers={"X-Test": "value"}),
+    )
 
-    # Base options
-    assert options.language is None
-    assert options.temperature == 0.0
-    assert options.initial_prompt is None
+    result = flatten_options(options)
 
-    # Local-specific options
-    assert options.model == "base"
-    assert options.task == "transcribe"
-    assert options.best_of is None
-    assert options.beam_size is None
-    assert options.patience is None
-    assert options.length_penalty is None
-    assert options.suppress_tokens == "-1"
-    assert options.condition_on_previous_text is True
-    assert options.fp16 is True
-    assert options.compression_ratio_threshold is None
-    assert options.logprob_threshold is None
-    assert options.no_speech_threshold is None
-    assert options.verbose is False
-    assert options.whisper_kwargs == {}
+    assert result["model"] == "gpt-4o-transcribe"
+    assert result["response_format"] == "json"
+    assert result["stream"] is True
+    assert result["timeout"] == 30.0
+    assert result["extra_headers"] == {"X-Test": "value"}
 
 
-def test_transcription_local_options_custom() -> None:
-    """Test TranscriptionLocalOptions with custom values."""
-    options = TranscriptionLocalOptions(
+def test_flatten_options_exclude_none() -> None:
+    """Test flatten_options filters None values by default."""
+    options = TranscriptionOptions(
+        model="whisper-1",
+        language=None,  # Should be excluded
+        prompt=None,  # Should be excluded
+    )
+
+    result = flatten_options(options, exclude_none=True)
+
+    assert "language" not in result
+    assert "prompt" not in result
+    assert result["model"] == "whisper-1"
+
+
+def test_flatten_options_exclude_fields() -> None:
+    """Test flatten_options with exclude_fields parameter."""
+    options = TranscriptionOptions(
+        model="whisper-1",
         language="en",
-        temperature=0.5,
-        model="small",
-        task="translate",
-        fp16=False,
-        verbose=True,
+        temperature=0.2,
     )
 
-    assert options.language == "en"
-    assert options.temperature == 0.5
-    assert options.model == "small"
-    assert options.task == "translate"
-    assert options.fp16 is False
-    assert options.verbose is True
+    result = flatten_options(options, exclude_fields={"temperature"})
 
-
-def test_transcription_local_options_with_kwargs() -> None:
-    """Test TranscriptionLocalOptions with additional kwargs."""
-    options = TranscriptionLocalOptions(
-        whisper_kwargs={"custom_param": "value", "another_param": 42}
-    )
-
-    assert options.whisper_kwargs == {"custom_param": "value", "another_param": 42}
-
-
-def test_transcription_options_is_alias() -> None:
-    """Test that TranscriptionOptions is an alias for TranscriptionApiOptions."""
-    assert TranscriptionOptions is TranscriptionApiOptions
+    assert result["model"] == "whisper-1"
+    assert result["language"] == "en"
+    assert "temperature" not in result  # Excluded
+    assert result["response_format"] == "verbose_json"  # From nested ResponseOptions

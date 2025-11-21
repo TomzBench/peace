@@ -64,65 +64,6 @@ def _extract_info(url: str, extract_flat: bool = False) -> dict[str, Any]:
         raise ExtractionError(f"Unexpected error: {e}", url) from e
 
 
-def _parse_formats(formats_data: list[dict[str, Any]]) -> list[Format]:
-    """Parse format data from yt-dlp into Format models.
-
-    Args:
-        formats_data: Raw format list from yt-dlp
-
-    Returns:
-        List of Format models
-    """
-    formats = []
-    for fmt in formats_data:
-        try:
-            formats.append(
-                Format(
-                    format_id=fmt["format_id"],
-                    ext=fmt.get("ext", "unknown"),
-                    format_note=fmt.get("format_note"),
-                    filesize=fmt.get("filesize"),
-                    filesize_approx=fmt.get("filesize_approx"),
-                    tbr=fmt.get("tbr"),
-                    vcodec=fmt.get("vcodec"),
-                    acodec=fmt.get("acodec"),
-                    fps=fmt.get("fps"),
-                    width=fmt.get("width"),
-                    height=fmt.get("height"),
-                    resolution=fmt.get("resolution"),
-                )
-            )
-        except Exception as e:
-            logger.warning(f"Failed to parse format {fmt.get('format_id')}: {e}")
-            continue
-    return formats
-
-
-def _parse_thumbnails(thumbnails_data: list[dict[str, Any]]) -> list[Thumbnail]:
-    """Parse thumbnail data from yt-dlp into Thumbnail models.
-
-    Args:
-        thumbnails_data: Raw thumbnail list from yt-dlp
-
-    Returns:
-        List of Thumbnail models
-    """
-    thumbnails = []
-    for thumb in thumbnails_data:
-        try:
-            thumbnails.append(
-                Thumbnail(
-                    url=thumb["url"],
-                    width=thumb.get("width"),
-                    height=thumb.get("height"),
-                )
-            )
-        except Exception as e:
-            logger.warning(f"Failed to parse thumbnail: {e}")
-            continue
-    return thumbnails
-
-
 def get_video_info(url: str) -> VideoInfo:
     """Extract video metadata without downloading.
 
@@ -145,33 +86,17 @@ def get_video_info(url: str) -> VideoInfo:
 
     info = _extract_info(url)
 
-    # Parse formats and thumbnails
-    formats = _parse_formats(info.get("formats", []))
-    thumbnails = _parse_thumbnails(info.get("thumbnails", []))
+    # Parse nested models using Pydantic's model_validate
+    formats = [Format.model_validate(f) for f in info.get("formats", [])]
+    thumbnails = [Thumbnail.model_validate(t) for t in info.get("thumbnails", [])]
 
-    video_info = VideoInfo(
-        url=url,  # type: ignore[arg-type]
-        video_id=info["id"],
-        title=info["title"],
-        description=info.get("description"),
-        uploader=info.get("uploader"),
-        uploader_id=info.get("uploader_id"),
-        channel=info.get("channel"),
-        channel_id=info.get("channel_id"),
-        upload_date=info.get("upload_date"),
-        timestamp=info.get("timestamp"),
-        duration=info.get("duration"),
-        view_count=info.get("view_count"),
-        like_count=info.get("like_count"),
-        comment_count=info.get("comment_count"),
-        age_limit=info.get("age_limit", 0),
-        is_live=info.get("is_live", False),
-        was_live=info.get("was_live", False),
-        formats=formats,
-        thumbnails=thumbnails,
-        categories=info.get("categories", []),
-        tags=info.get("tags", []),
-    )
+    # Use Pydantic to auto-parse remaining fields
+    video_info = VideoInfo.model_validate({
+        **info,
+        "url": url,
+        "formats": formats,
+        "thumbnails": thumbnails,
+    })
 
     logger.info(f"Successfully extracted info for: {video_info.title}")
     return video_info
@@ -226,35 +151,19 @@ def download_video(
             # Get the actual downloaded file path
             downloaded_file = Path(ydl.prepare_filename(info))
 
-            # Parse formats and thumbnails
-            formats = _parse_formats(info.get("formats", []))
-            thumbnails = _parse_thumbnails(info.get("thumbnails", []))
+            # Parse nested models using Pydantic's model_validate
+            formats = [Format.model_validate(f) for f in info.get("formats", [])]
+            thumbnails = [Thumbnail.model_validate(t) for t in info.get("thumbnails", [])]
 
-            video_info = VideoInfo(
-                url=url,  # type: ignore[arg-type]
-                video_id=info["id"],
-                title=info["title"],
-                description=info.get("description"),
-                uploader=info.get("uploader"),
-                uploader_id=info.get("uploader_id"),
-                channel=info.get("channel"),
-                channel_id=info.get("channel_id"),
-                upload_date=info.get("upload_date"),
-                timestamp=info.get("timestamp"),
-                duration=info.get("duration"),
-                view_count=info.get("view_count"),
-                like_count=info.get("like_count"),
-                comment_count=info.get("comment_count"),
-                age_limit=info.get("age_limit", 0),
-                is_live=info.get("is_live", False),
-                was_live=info.get("was_live", False),
-                formats=formats,
-                thumbnails=thumbnails,
-                categories=info.get("categories", []),
-                tags=info.get("tags", []),
-                downloaded_file=downloaded_file,
-                download_timestamp=datetime.now(),
-            )
+            # Use Pydantic to auto-parse remaining fields
+            video_info = VideoInfo.model_validate({
+                **info,
+                "url": url,
+                "formats": formats,
+                "thumbnails": thumbnails,
+                "downloaded_file": downloaded_file,
+                "download_timestamp": datetime.now(),
+            })
 
             logger.info(f"Successfully downloaded: {video_info.title}")
             return video_info
@@ -325,35 +234,19 @@ def download_audio(
             base_filename = ydl.prepare_filename(info)
             downloaded_file = Path(base_filename).with_suffix(f".{options.format}")
 
-            # Parse formats and thumbnails
-            formats = _parse_formats(info.get("formats", []))
-            thumbnails = _parse_thumbnails(info.get("thumbnails", []))
+            # Parse nested models using Pydantic's model_validate
+            formats = [Format.model_validate(f) for f in info.get("formats", [])]
+            thumbnails = [Thumbnail.model_validate(t) for t in info.get("thumbnails", [])]
 
-            video_info = VideoInfo(
-                url=url,  # type: ignore[arg-type]
-                video_id=info["id"],
-                title=info["title"],
-                description=info.get("description"),
-                uploader=info.get("uploader"),
-                uploader_id=info.get("uploader_id"),
-                channel=info.get("channel"),
-                channel_id=info.get("channel_id"),
-                upload_date=info.get("upload_date"),
-                timestamp=info.get("timestamp"),
-                duration=info.get("duration"),
-                view_count=info.get("view_count"),
-                like_count=info.get("like_count"),
-                comment_count=info.get("comment_count"),
-                age_limit=info.get("age_limit", 0),
-                is_live=info.get("is_live", False),
-                was_live=info.get("was_live", False),
-                formats=formats,
-                thumbnails=thumbnails,
-                categories=info.get("categories", []),
-                tags=info.get("tags", []),
-                downloaded_file=downloaded_file,
-                download_timestamp=datetime.now(),
-            )
+            # Use Pydantic to auto-parse remaining fields
+            video_info = VideoInfo.model_validate({
+                **info,
+                "url": url,
+                "formats": formats,
+                "thumbnails": thumbnails,
+                "downloaded_file": downloaded_file,
+                "download_timestamp": datetime.now(),
+            })
 
             logger.info(f"Successfully downloaded audio: {video_info.title}")
             return video_info

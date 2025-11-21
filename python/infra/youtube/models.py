@@ -5,11 +5,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 
 class Thumbnail(BaseModel):
     """YouTube video thumbnail."""
+
+    model_config = ConfigDict(extra="ignore")
 
     url: HttpUrl
     width: int | None = None
@@ -18,6 +20,8 @@ class Thumbnail(BaseModel):
 
 class Format(BaseModel):
     """Video or audio format information."""
+
+    model_config = ConfigDict(extra="ignore")
 
     format_id: str
     ext: str
@@ -45,9 +49,11 @@ class Transcription(BaseModel):
 class VideoInfo(BaseModel):
     """Complete video metadata and download information."""
 
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
     # Basic info
     url: HttpUrl
-    video_id: str
+    video_id: str = Field(alias="id")
     title: str
     description: str | None = None
     uploader: str | None = None

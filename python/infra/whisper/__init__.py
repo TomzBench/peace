@@ -16,14 +16,9 @@ Examples:
     >>> print(f"Text: {result.text}")
 
     Transcribe with language and temperature:
-    >>> from python.infra.whisper import transcribe_audio, TranscriptionApiOptions
-    >>> opts = TranscriptionApiOptions(language="en", temperature=0.2)
+    >>> from python.infra.whisper import transcribe_audio, TranscriptionOptions
+    >>> opts = TranscriptionOptions(language="en", temperature=0.2)
     >>> result = transcribe_audio(Path("audio.mp3"), opts)
-
-    Transcribe and translate to English:
-    >>> from python.infra.whisper import transcribe_and_translate
-    >>> result = transcribe_and_translate(Path("spanish.mp3"))
-    >>> print(f"English translation: {result.text}")
 
     Working with segments:
     >>> for segment in result.segments:
@@ -36,10 +31,7 @@ Examples:
     >>> result = transcribe_audio(video_info.downloaded_file)
 """
 
-from python.infra.whisper.client import (
-    transcribe_and_translate,
-    transcribe_audio,
-)
+from python.infra.whisper.client import transcribe_audio
 from python.infra.whisper.exceptions import (
     AudioFileError,
     ModelLoadError,
@@ -47,25 +39,28 @@ from python.infra.whisper.exceptions import (
     WhisperError,
 )
 from python.infra.whisper.models import (
+    OpenAIRequestConfig,
+    ResponseOptions,
     Segment,
-    TranscriptionApiOptions,
-    TranscriptionBaseOptions,
-    TranscriptionLocalOptions,
     TranscriptionOptions,
     TranscriptionResult,
+    TranslateOptions,
+    Usage,  # Re-exported SDK type
+    flatten_options,
 )
 
 __all__ = [
     "AudioFileError",
     "ModelLoadError",
+    "OpenAIRequestConfig",
+    "ResponseOptions",
     "Segment",
-    "TranscriptionApiOptions",
-    "TranscriptionBaseOptions",
     "TranscriptionError",
-    "TranscriptionLocalOptions",
     "TranscriptionOptions",
     "TranscriptionResult",
+    "TranslateOptions",
+    "Usage",
     "WhisperError",
-    "transcribe_and_translate",
+    "flatten_options",
     "transcribe_audio",
 ]

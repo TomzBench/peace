@@ -4,7 +4,6 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
-from typing import Any
 
 from openai import OpenAI
 
@@ -15,9 +14,9 @@ from python.infra.whisper.exceptions import (
     WhisperError,
 )
 from python.infra.whisper.models import (
-    Segment,
-    TranscriptionApiOptions,
+    TranscriptionOptions,
     TranscriptionResult,
+    flatten_options,
 )
 
 logger = logging.getLogger(__name__)
@@ -35,9 +34,6 @@ def _get_client() -> OpenAI:
 
     Raises:
         WhisperError: If API key is not configured
-
-    Examples:
-        >>> client = _get_client()
     """
     settings = get_settings()
 
@@ -87,49 +83,20 @@ def _validate_audio_file(audio_path: Path) -> None:
         )
 
 
-def _parse_segments(segments_data: list[dict[str, Any]]) -> list[Segment]:
-    """Parse Whisper segment data into Segment models.
-
-    Args:
-        segments_data: Raw segment list from Whisper
-
-    Returns:
-        List of Segment models
-    """
-    segments = []
-    for seg in segments_data:
-        try:
-            segments.append(
-                Segment(
-                    id=seg["id"],
-                    start=seg["start"],
-                    end=seg["end"],
-                    text=seg["text"],
-                    tokens=seg["tokens"],
-                    temperature=seg["temperature"],
-                    avg_logprob=seg["avg_logprob"],
-                    compression_ratio=seg["compression_ratio"],
-                    no_speech_prob=seg["no_speech_prob"],
-                )
-            )
-        except Exception as e:
-            logger.warning(f"Failed to parse segment {seg.get('id')}: {e}")
-            continue
-    return segments
 
 
 def transcribe_audio(
     audio_path: Path,
-    options: TranscriptionApiOptions | None = None,
+    options: TranscriptionOptions | None = None,
 ) -> TranscriptionResult:
     """Transcribe audio file using OpenAI Whisper API.
 
     Args:
         audio_path: Path to audio file (mp3, wav, m4a, etc.) - max 25MB
-        options: API transcription options (language, temperature, initial_prompt)
+        options: Transcription options with composable request/response config
 
     Returns:
-        TranscriptionResult with full text, segments, and metadata
+        TranscriptionResult with text, segments, metadata, and usage info
 
     Raises:
         AudioFileError: If audio file is invalid, missing, or exceeds 25MB
@@ -139,72 +106,61 @@ def transcribe_audio(
     Examples:
         >>> from pathlib import Path
         >>> result = transcribe_audio(Path("audio.mp3"))
-        >>> print(f"Detected language: {result.language}")
-        >>> print(f"Text: {result.text}")
+        >>> print(f"Language: {result.language}, Text: {result.text}")
 
-        >>> opts = TranscriptionApiOptions(language="en", temperature=0.2)
+        >>> from python.infra.whisper.models import TranscriptionOptions, ResponseOptions
+        >>> opts = TranscriptionOptions(
+        ...     model="gpt-4o-transcribe",
+        ...     language="en",
+        ...     temperature=0.2,
+        ...     response=ResponseOptions(response_format="json")
+        ... )
         >>> result = transcribe_audio(Path("audio.mp3"), opts)
-
-    Note:
-        OpenAI API only supports the "whisper-1" model. Advanced parameters
-        (beam_size, best_of, etc.) are only available with TranscriptionLocalOptions
-        when running Whisper locally.
     """
-    options = options or TranscriptionApiOptions()
-    audio_path = Path(audio_path)
-
+    options = options or TranscriptionOptions()
     logger.info(f"Transcribing audio file via OpenAI API: {audio_path}")
 
-    # Validate audio file (includes size check)
-    _validate_audio_file(audio_path)
+    # Flatten all composable options into API parameters
+    api_params = flatten_options(options)
 
-    # Get OpenAI client
-    try:
-        client = _get_client()
-    except WhisperError:
-        raise
-
-    # Prepare API parameters (only supported ones)
-    api_params: dict[str, Any] = {
-        "model": "whisper-1",  # Only model available
-        "response_format": "verbose_json",  # Get segments and metadata
-        **{
-            k: v for k, v in {
-                "language": options.language,
-                "temperature": options.temperature if options.temperature != 0.0 else None,
-                "prompt": options.initial_prompt,  # API uses "prompt" not "initial_prompt"
-            }.items() if v is not None
-        }
-    }
+    # Force verbose_json format to get rich response (segments, language, duration)
+    # This simplifies our API - we always return complete data regardless of caller's intent
+    api_params["response_format"] = "verbose_json"
 
     # Perform transcription
     try:
+        # Get OpenAI client
+        client = _get_client()
+
+        # Validate audio file
+        _validate_audio_file(audio_path)
+
+        # read audio and transcribe
         with open(audio_path, "rb") as audio_file:
             response = client.audio.transcriptions.create(
                 file=audio_file,
                 **api_params,
             )
 
-        # Parse segments from response
-        segments = _parse_segments(response.segments or [])
-
-        # Build transcription result
+        # Build transcription result - using SDK types directly (no conversion needed)
         transcription_result = TranscriptionResult(
+            object="transcription",
+            usage=response.usage if hasattr(response, "usage") else None,
             text=response.text,
-            segments=segments,
+            segments=response.segments or [],
             language=response.language,
-            audio_file=audio_path,
-            model_name="whisper-1",
-            transcription_timestamp=datetime.now(),
             duration=response.duration,
+            audio_file=audio_path,
+            model_name=options.model,
+            transcription_timestamp=datetime.now(),
         )
 
         logger.info(
             dedent(f"""
                 Successfully transcribed {audio_path.name}:
-                {len(transcription_result.text)} chars,
-                {len(segments)} segments,
-                language={transcription_result.language}
+                - Characters: {len(transcription_result.text)}
+                - Segments: {len(transcription_result.segments)}
+                - Language: {transcription_result.language}
             """).strip()
         )
 
@@ -217,102 +173,4 @@ def transcribe_audio(
     except Exception as e:
         raise TranscriptionError(
             f"API transcription failed for {audio_path.name}: {e}", str(audio_path)
-        ) from e
-
-
-def transcribe_and_translate(
-    audio_path: Path,
-    options: TranscriptionApiOptions | None = None,
-) -> TranscriptionResult:
-    """Transcribe and translate audio to English using OpenAI Whisper API.
-
-    Uses the separate translations endpoint which transcribes non-English audio
-    and translates it to English in a single step.
-
-    Args:
-        audio_path: Path to audio file - max 25MB
-        options: API transcription options (temperature, initial_prompt)
-
-    Returns:
-        TranscriptionResult with English translation in the text field
-
-    Raises:
-        AudioFileError: If audio file is invalid, missing, or exceeds 25MB
-        WhisperError: If API key is not configured
-        TranscriptionError: If translation fails
-
-    Examples:
-        >>> result = transcribe_and_translate(Path("spanish_audio.mp3"))
-        >>> print(f"English translation: {result.text}")
-
-    Note:
-        The language parameter is not used for translation - the API automatically
-        detects the source language and translates to English.
-    """
-    options = options or TranscriptionApiOptions()
-    audio_path = Path(audio_path)
-
-    logger.info(f"Transcribing and translating to English via OpenAI API: {audio_path}")
-
-    # Validate audio file (includes size check)
-    _validate_audio_file(audio_path)
-
-    # Get OpenAI client
-    try:
-        client = _get_client()
-    except WhisperError:
-        raise
-
-    # Prepare API parameters (only supported ones)
-    api_params: dict[str, Any] = {
-        "model": "whisper-1",
-        "response_format": "verbose_json",
-        **{
-            k: v for k, v in {
-                "temperature": options.temperature if options.temperature != 0.0 else None,
-                "prompt": options.initial_prompt,  # API uses "prompt" not "initial_prompt"
-            }.items() if v is not None
-        }
-    }
-
-    # Perform translation
-    try:
-        with open(audio_path, "rb") as audio_file:
-            response = client.audio.translations.create(
-                file=audio_file,
-                **api_params,
-            )
-
-        # Parse segments from response
-        segments = _parse_segments(response.segments or [])
-
-        # Build transcription result
-        transcription_result = TranscriptionResult(
-            text=response.text,
-            segments=segments,
-            language=response.language,
-            audio_file=audio_path,
-            model_name="whisper-1",
-            transcription_timestamp=datetime.now(),
-            duration=response.duration,
-            translation=None,
-        )
-
-        logger.info(
-            dedent(f"""
-                Successfully translated {audio_path.name} to English:
-                {len(transcription_result.text)} chars,
-                {len(segments)} segments
-            """).strip()
-        )
-
-        return transcription_result
-
-    except WhisperError:
-        raise
-    except AudioFileError:
-        raise
-    except Exception as e:
-        raise TranscriptionError(
-            f"API translation failed for {audio_path.name}: {e}", str(audio_path)
         ) from e
