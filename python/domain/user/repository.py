@@ -3,6 +3,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
+from textwrap import dedent
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,8 +37,11 @@ async def create_user(
         Created user
     """
     logger.debug(
-        f"Repository: Creating user with email={user_data.get('email')}, "
-        f"username={user_data.get('username')}"
+        dedent(f"""
+            Repository: Creating user
+            - email: {user_data.get('email')}
+            - username: {user_data.get('username')}
+        """).strip()
     )
     user = User(**user_data)
     session.add(user)
@@ -113,8 +117,12 @@ async def list_users(
     """
     filters = filters or UserListFilter()
     logger.debug(
-        f"Repository: Listing users (skip={filters.skip}, limit={filters.limit}, "
-        f"active_only={filters.active_only})"
+        dedent(f"""
+            Repository: Listing users
+            - skip: {filters.skip}
+            - limit: {filters.limit}
+            - active_only: {filters.active_only}
+        """).strip()
     )
     query = select(User)
 

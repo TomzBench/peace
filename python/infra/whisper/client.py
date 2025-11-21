@@ -3,6 +3,7 @@
 import logging
 from datetime import datetime
 from pathlib import Path
+from textwrap import dedent
 from typing import Any
 
 from openai import OpenAI
@@ -200,10 +201,12 @@ def transcribe_audio(
         )
 
         logger.info(
-            f"Successfully transcribed {audio_path.name}: "
-            f"{len(transcription_result.text)} chars, "
-            f"{len(segments)} segments, "
-            f"language={transcription_result.language}"
+            dedent(f"""
+                Successfully transcribed {audio_path.name}:
+                {len(transcription_result.text)} chars,
+                {len(segments)} segments,
+                language={transcription_result.language}
+            """).strip()
         )
 
         return transcription_result
@@ -297,9 +300,11 @@ def transcribe_and_translate(
         )
 
         logger.info(
-            f"Successfully translated {audio_path.name} to English: "
-            f"{len(transcription_result.text)} chars, "
-            f"{len(segments)} segments"
+            dedent(f"""
+                Successfully translated {audio_path.name} to English:
+                {len(transcription_result.text)} chars,
+                {len(segments)} segments
+            """).strip()
         )
 
         return transcription_result

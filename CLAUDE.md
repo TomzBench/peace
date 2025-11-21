@@ -67,7 +67,64 @@ class DownloadOptions(BaseModel):
 
 **Last audited: 2025-11-20** - All models follow this pattern consistently.
 
-### 2. Functional Approach (NOT Class-Based)
+### 2. Multiline String Formatting
+
+**Use the right approach based on string length and structure:**
+
+**Short messages (< 88 chars): Single line**
+```python
+logger.info(f"Starting {settings.app_name}")
+logger.debug(f"User found for ID={user_id}")
+```
+
+**Long/structured messages: Use `textwrap.dedent`**
+```python
+from textwrap import dedent
+
+logger.info(
+    dedent(f"""
+        Successfully transcribed {audio_path.name}:
+        - Characters: {len(transcription_result.text)}
+        - Segments: {len(segments)}
+        - Language: {transcription_result.language}
+    """).strip()
+)
+```
+
+**Why `dedent`:**
+- ✅ Much more readable for multi-item logs
+- ✅ Easier to edit and maintain
+- ✅ Natural indentation in code
+- ✅ Clean output without extra whitespace
+
+**Error messages: Implicit concatenation for static strings**
+```python
+raise WhisperError(
+    "OpenAI API key not configured. "
+    "Set OPENAI_API_KEY environment variable "
+    "or configure openai_api_key in config.yaml"
+)
+```
+
+**Multiline function calls: Always use trailing commas**
+```python
+# ✅ DO: Trailing comma for cleaner git diffs
+_engine = create_async_engine(
+    settings.database_url,
+    echo=settings.echo_sql,
+    future=True,  # <-- trailing comma
+)
+
+# ❌ DON'T: Missing trailing comma
+_client = AsyncQdrantClient(
+    url=settings.qdrant_url,
+    api_key=settings.qdrant_api_key  # <-- no comma
+)
+```
+
+**Last audited: 2025-11-20** - Standardized across codebase.
+
+### 3. Functional Approach (NOT Class-Based)
 
 **DO** ✅
 ```python
@@ -97,7 +154,7 @@ class UserRepository:
 
 **Why**: Small project with few models. Functional approach is simpler, more explicit, and easier to test.
 
-### 3. FastAPI Dependency Injection
+### 4. FastAPI Dependency Injection
 
 **DO** ✅ Modern pattern with `Annotated`
 ```python
@@ -126,7 +183,7 @@ async def create_user(
 
 **Why**: Function calls in default arguments are evaluated at definition time. `Annotated` is the modern FastAPI pattern and avoids linting warnings.
 
-### 4. SQLModel Schema Pattern
+### 5. SQLModel Schema Pattern
 
 **Unified approach** (less boilerplate for small projects):
 

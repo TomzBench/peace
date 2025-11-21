@@ -1,6 +1,7 @@
 """User CRUD routes."""
 
 import logging
+from textwrap import dedent
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -103,12 +104,22 @@ async def list_users_endpoint(
         List of users
     """
     logger.debug(
-        f"GET /users/ - Listing users (skip={skip}, limit={limit}, active_only={active_only})"
+        dedent(f"""
+            GET /users/ - Listing users
+            - skip: {skip}
+            - limit: {limit}
+            - active_only: {active_only}
+        """).strip()
     )
     filters = UserListFilter(skip=skip, limit=limit, active_only=active_only)
     users = await list_users(session, filters)
     logger.info(
-        f"Listed {len(users)} users (skip={skip}, limit={limit}, active_only={active_only})"
+        dedent(f"""
+            Listed {len(users)} users
+            - skip: {skip}
+            - limit: {limit}
+            - active_only: {active_only}
+        """).strip()
     )
     return users
 
