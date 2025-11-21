@@ -6,17 +6,17 @@ from pathlib import Path
 from python.infra.whisper.models import (
     OpenAIRequestConfig,
     ResponseOptions,
-    Segment,
     TranscriptionOptions,
     TranscriptionResult,
+    TranscriptionSegment,
     TranslateOptions,
     flatten_options,
 )
 
 
 def test_segment_creation() -> None:
-    """Test creating a Segment model (SDK TranscriptionSegment)."""
-    segment = Segment(
+    """Test creating a TranscriptionSegment model (SDK TranscriptionSegment)."""
+    segment = TranscriptionSegment(
         id=0,
         seek=0,  # SDK field
         start=0.0,
@@ -69,7 +69,7 @@ def test_transcription_result_creation() -> None:
 def test_transcription_result_with_segments() -> None:
     """Test TranscriptionResult with segments (SDK TranscriptionSegment)."""
     segments = [
-        Segment(
+        TranscriptionSegment(
             id=0,
             seek=0,
             start=0.0,
@@ -81,7 +81,7 @@ def test_transcription_result_with_segments() -> None:
             compression_ratio=1.5,
             no_speech_prob=0.01,
         ),
-        Segment(
+        TranscriptionSegment(
             id=1,
             seek=100,
             start=2.0,

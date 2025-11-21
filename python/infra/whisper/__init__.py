@@ -20,7 +20,6 @@ from .models import (
     OpenAIFile,
     OpenAIRequestConfig,
     ResponseOptions,
-    Segment,
     TranscriptionOptions,
     TranscriptionResult,
     TranslateOptions,

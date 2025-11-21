@@ -9,9 +9,6 @@ from openai.types.audio import TranscriptionSegment
 from openai.types.audio.transcription import Usage
 from pydantic import BaseModel, Field
 
-# Re-export SDK types for convenience
-Segment = TranscriptionSegment
-
 
 class OpenAIFile(BaseModel):
     """Base class for files that can be sent to OpenAI APIs.
