@@ -34,19 +34,99 @@ logger = logging.getLogger(__name__)
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
+def create_test_audio(duration_ms: int, format: str = "mp3") -> bytes:
+    """Create test audio data of specified duration.
+
+    Args:
+        duration_ms: Audio duration in milliseconds
+        format: Audio format (mp3, wav, etc.)
+
+    Returns:
+        Audio data as bytes
+    """
+    from io import BytesIO
+
+    from pydub.generators import Sine  # type: ignore[import-untyped]
+
+    # Generate a simple sine wave tone
+    audio = Sine(440).to_audio_segment(duration=duration_ms)
+    buffer = BytesIO()
+    audio.export(buffer, format=format)
+    return buffer.getvalue()
+
+
+def generate_test_audio_fixtures() -> None:
+    """Generate test audio files for integration tests.
+
+    TODO: Implement this to create audio fixtures:
+    - short_audio.mp3 (30 seconds)
+    - medium_audio.mp3 (5 minutes)
+    - long_audio.mp3 (15 minutes)
+
+    These will be used for integration tests to verify real audio processing.
+    """
+    logger.info("TODO: Generate test audio fixtures")
+    # Example implementation (uncomment when ready):
+    # fixtures = {
+    #     "short_audio.mp3": create_test_audio(30000),
+    #     "medium_audio.mp3": create_test_audio(300000),
+    #     "long_audio.mp3": create_test_audio(900000),
+    # }
+    # for name, data in fixtures.items():
+    #     fixture_path = FIXTURES_DIR / name
+    #     fixture_path.write_bytes(data)
+    #     logger.info(f"Created {name} ({len(data)} bytes)")
+
+
+def generate_whisper_fixtures() -> None:
+    """Generate real Whisper API response fixtures.
+
+    TODO: Implement once OpenAI API key is available:
+    1. Load/generate small test audio (5-10 seconds)
+    2. Call transcribe_audio() with real API
+    3. Save TranscriptionResult to fixtures/transcription_basic.json
+    4. Test with different models, languages, options
+
+    Cost: ~$0.006 per minute of audio
+    """
+    logger.info("TODO: Generate Whisper API fixtures")
+    # Example implementation (uncomment when ready):
+    # from ..client import transcribe_audio
+    # from ..audio import open_audio_file
+    #
+    # # Generate or load test audio
+    # test_audio_path = FIXTURES_DIR / "test_audio_5sec.mp3"
+    # if not test_audio_path.exists():
+    #     test_audio_path.write_bytes(create_test_audio(5000))
+    #
+    # # Transcribe with real API
+    # audio_file = open_audio_file(test_audio_path)
+    # result = await transcribe_audio(audio_file)
+    #
+    # # Save fixture
+    # fixture_path = FIXTURES_DIR / "transcription_basic.json"
+    # fixture_path.write_text(result.model_dump_json(indent=2))
+
+
 def main() -> None:
-    """Main entry point."""
-    logger.error(
-        "This script is not yet implemented. "
-        "An OpenAI API key is required to generate real fixtures."
-    )
-    logger.info(
-        "\nTo implement this script:\n"
-        "1. Create or obtain small test audio files (~5 seconds)\n"
-        "2. Configure OPENAI_API_KEY environment variable\n"
-        "3. Call transcribe_audio() and transcribe_and_translate()\n"
-        "4. Save the complete responses as JSON to fixtures/ directory\n"
-        "\nSee python/infra/youtube/tests/update_fixtures.py for reference pattern."
+    """Main entry point for fixture generation."""
+    logger.info("Whisper Test Fixture Generator")
+    logger.info("=" * 50)
+
+    # Ensure fixtures directory exists
+    FIXTURES_DIR.mkdir(exist_ok=True)
+
+    # TODO: Uncomment when ready to generate fixtures
+    # generate_test_audio_fixtures()
+    # generate_whisper_fixtures()
+
+    logger.warning(
+        "\nFixture generation is not yet implemented.\n"
+        "To implement:\n"
+        "1. Uncomment generate_test_audio_fixtures() for audio files\n"
+        "2. Configure OPENAI_API_KEY for Whisper API fixtures\n"
+        "3. Uncomment generate_whisper_fixtures() for API responses\n"
+        "\nSee create_test_audio() function for audio generation logic."
     )
 
 

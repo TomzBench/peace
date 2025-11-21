@@ -1,5 +1,6 @@
 """Whisper audio transcription module."""
 
+from .audio import chunk_audio_file
 from .client import transcribe_audio
 from .dependencies import (
     clear_overrides,
@@ -15,6 +16,7 @@ from .exceptions import (
 )
 from .models import (
     AudioFile,
+    AudioFileChunk,
     OpenAIFile,
     OpenAIRequestConfig,
     ResponseOptions,
@@ -28,6 +30,7 @@ from .models import (
 
 __all__ = [
     "AudioFile",
+    "AudioFileChunk",
     "AudioFileError",
     "ModelLoadError",
     "OpenAIFile",
@@ -40,6 +43,7 @@ __all__ = [
     "TranslateOptions",
     "Usage",
     "WhisperError",
+    "chunk_audio_file",
     "clear_overrides",
     "flatten_options",
     "get_openai_client",

@@ -49,6 +49,33 @@ class AudioFile(OpenAIFile):
     size: int  # File size in bytes
     extension: str  # File extension (e.g., ".mp3")
 
+
+class AudioFileChunk(OpenAIFile):
+    """Audio file chunk with position metadata.
+
+    Time-based chunk of original audio file, stored in-memory
+    as a valid audio file ready for OpenAI API.
+    """
+
+    # Chunk metadata
+    chunk_index: int  # 0-based chunk number
+    total_chunks: int  # Total number of chunks
+    start_time_ms: int  # Start time in original audio (milliseconds)
+    end_time_ms: int  # End time in original audio (milliseconds)
+
+    # Original file reference
+    original_filename: str  # Original file name
+    original_path: Path  # Original file path
+
+    def __repr__(self) -> str:
+        """String representation for logging."""
+        return (
+            f"AudioFileChunk(chunk={self.chunk_index + 1}/{self.total_chunks}, "
+            f"time={self.start_time_ms}-{self.end_time_ms}ms, "
+            f"size={len(self.data)} bytes)"
+        )
+
+
 # Composable base classes (OpenAI API patterns)
 # Defined first so they can be referenced by result/option classes
 
