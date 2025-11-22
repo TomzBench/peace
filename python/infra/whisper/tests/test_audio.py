@@ -1,5 +1,7 @@
 """Tests for audio file utilities."""
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -9,6 +11,45 @@ import pytest
 from ..audio import MAX_FILE_SIZE_BYTES, chunk_audio_file, open_audio_file
 from ..exceptions import AudioFileError
 from ..models import AudioFile, AudioFileChunk
+
+# Test Factories
+
+
+def make_audio_file(
+    tmp_path: Path,
+    filename: str,
+    extension: str,
+    data: bytes = b"fake_audio_data",
+) -> AudioFile:
+    audio_path = tmp_path / filename
+    audio_path.write_bytes(data)
+
+    return AudioFile(
+        path=audio_path,
+        data=data,
+        size=len(data),
+        extension=extension,
+        filename=filename,
+    )
+
+
+@contextmanager
+def make_mock_audio_segment(
+    duration_ms: int,
+    chunk_data: bytes = b"fake_chunk_data",
+) -> Iterator[None]:
+    with patch("infra.whisper.audio.AudioSegment") as mock_audio_class:
+        mock_segment = MagicMock()
+        mock_segment.__len__.return_value = duration_ms
+        mock_segment.__getitem__.return_value = mock_segment
+
+        def mock_export(buffer: BytesIO, format: str) -> None:
+            buffer.write(chunk_data)
+
+        mock_segment.export = mock_export
+        mock_audio_class.from_file.return_value = mock_segment
+
+        yield
 
 
 def test_open_audio_file_success(tmp_path: Path) -> None:
@@ -137,29 +178,9 @@ def test_open_audio_file_returns_complete_data(tmp_path: Path) -> None:
 
 def test_chunk_audio_file_multiple_chunks(tmp_path: Path) -> None:
     """Test chunking creates multiple chunks for long audio."""
-    audio_path = tmp_path / "long_audio.mp3"
-    audio_path.write_bytes(b"fake_audio_data")
+    audio_file = make_audio_file(tmp_path, "long_audio.mp3", ".mp3")
 
-    audio_file = AudioFile(
-        path=audio_path,
-        data=b"fake_audio_data",
-        size=100,
-        extension=".mp3",
-        filename="long_audio.mp3",
-    )
-
-    # Mock AudioSegment to avoid real audio processing
-    with patch("infra.whisper.audio.AudioSegment") as mock_audio_class:
-        mock_segment = MagicMock()
-        mock_segment.__len__.return_value = 660000  # 11 minutes
-        mock_segment.__getitem__.return_value = mock_segment
-
-        def mock_export(buffer: BytesIO, format: str) -> None:
-            buffer.write(b"fake_chunk_data")
-
-        mock_segment.export = mock_export
-        mock_audio_class.from_file.return_value = mock_segment
-
+    with make_mock_audio_segment(duration_ms=660000):  # 11 minutes
         chunks = chunk_audio_file(audio_file, chunk_duration_ms=300000)
 
         assert len(chunks) == 3
@@ -169,29 +190,9 @@ def test_chunk_audio_file_multiple_chunks(tmp_path: Path) -> None:
 
 def test_chunk_audio_file_single_chunk(tmp_path: Path) -> None:
     """Test short audio results in single chunk."""
-    audio_path = tmp_path / "short_audio.mp3"
-    audio_path.write_bytes(b"fake_audio_data")
+    audio_file = make_audio_file(tmp_path, "short_audio.mp3", ".mp3")
 
-    audio_file = AudioFile(
-        path=audio_path,
-        data=b"fake_audio_data",
-        size=100,
-        extension=".mp3",
-        filename="short_audio.mp3",
-    )
-
-    # Mock AudioSegment
-    with patch("infra.whisper.audio.AudioSegment") as mock_audio_class:
-        mock_segment = MagicMock()
-        mock_segment.__len__.return_value = 120000  # 2 minutes
-        mock_segment.__getitem__.return_value = mock_segment
-
-        def mock_export(buffer: BytesIO, format: str) -> None:
-            buffer.write(b"fake_chunk_data")
-
-        mock_segment.export = mock_export
-        mock_audio_class.from_file.return_value = mock_segment
-
+    with make_mock_audio_segment(duration_ms=120000):  # 2 minutes
         chunks = chunk_audio_file(audio_file)
 
         assert len(chunks) == 1
@@ -201,29 +202,9 @@ def test_chunk_audio_file_single_chunk(tmp_path: Path) -> None:
 
 def test_chunk_audio_file_metadata_correct(tmp_path: Path) -> None:
     """Test chunk metadata accuracy."""
-    audio_path = tmp_path / "test_audio.mp3"
-    audio_path.write_bytes(b"fake_audio_data")
+    audio_file = make_audio_file(tmp_path, "test_audio.mp3", ".mp3")
 
-    audio_file = AudioFile(
-        path=audio_path,
-        data=b"fake_audio_data",
-        size=100,
-        extension=".mp3",
-        filename="test_audio.mp3",
-    )
-
-    # Mock AudioSegment
-    with patch("infra.whisper.audio.AudioSegment") as mock_audio_class:
-        mock_segment = MagicMock()
-        mock_segment.__len__.return_value = 420000  # 7 minutes
-        mock_segment.__getitem__.return_value = mock_segment
-
-        def mock_export(buffer: BytesIO, format: str) -> None:
-            buffer.write(b"fake_chunk_data")
-
-        mock_segment.export = mock_export
-        mock_audio_class.from_file.return_value = mock_segment
-
+    with make_mock_audio_segment(duration_ms=420000):  # 7 minutes
         chunks = chunk_audio_file(audio_file, chunk_duration_ms=300000)
 
         assert len(chunks) == 2
@@ -243,34 +224,14 @@ def test_chunk_audio_file_metadata_correct(tmp_path: Path) -> None:
 
         # Check original file references
         assert all(chunk.original_filename == "test_audio.mp3" for chunk in chunks)
-        assert all(chunk.original_path == audio_path for chunk in chunks)
+        assert all(chunk.original_path == audio_file.path for chunk in chunks)
 
 
 def test_chunk_audio_file_filenames(tmp_path: Path) -> None:
     """Test chunk filenames have index."""
-    audio_path = tmp_path / "my_audio.mp3"
-    audio_path.write_bytes(b"fake_audio_data")
+    audio_file = make_audio_file(tmp_path, "my_audio.mp3", ".mp3")
 
-    audio_file = AudioFile(
-        path=audio_path,
-        data=b"fake_audio_data",
-        size=100,
-        extension=".mp3",
-        filename="my_audio.mp3",
-    )
-
-    # Mock AudioSegment
-    with patch("infra.whisper.audio.AudioSegment") as mock_audio_class:
-        mock_segment = MagicMock()
-        mock_segment.__len__.return_value = 420000  # 7 minutes
-        mock_segment.__getitem__.return_value = mock_segment
-
-        def mock_export(buffer: BytesIO, format: str) -> None:
-            buffer.write(b"fake_chunk_data")
-
-        mock_segment.export = mock_export
-        mock_audio_class.from_file.return_value = mock_segment
-
+    with make_mock_audio_segment(duration_ms=420000):  # 7 minutes
         chunks = chunk_audio_file(audio_file, chunk_duration_ms=300000)
 
         assert chunks[0].filename == "my_audio_chunk_0.mp3"
@@ -279,29 +240,9 @@ def test_chunk_audio_file_filenames(tmp_path: Path) -> None:
 
 def test_chunk_audio_file_custom_duration(tmp_path: Path) -> None:
     """Test custom chunk duration."""
-    audio_path = tmp_path / "test.mp3"
-    audio_path.write_bytes(b"fake_audio_data")
+    audio_file = make_audio_file(tmp_path, "test.mp3", ".mp3")
 
-    audio_file = AudioFile(
-        path=audio_path,
-        data=b"fake_audio_data",
-        size=100,
-        extension=".mp3",
-        filename="test.mp3",
-    )
-
-    # Mock AudioSegment
-    with patch("infra.whisper.audio.AudioSegment") as mock_audio_class:
-        mock_segment = MagicMock()
-        mock_segment.__len__.return_value = 150000  # 2.5 minutes
-        mock_segment.__getitem__.return_value = mock_segment
-
-        def mock_export(buffer: BytesIO, format: str) -> None:
-            buffer.write(b"fake_chunk_data")
-
-        mock_segment.export = mock_export
-        mock_audio_class.from_file.return_value = mock_segment
-
+    with make_mock_audio_segment(duration_ms=150000):  # 2.5 minutes
         chunks = chunk_audio_file(audio_file, chunk_duration_ms=60000)
 
         assert len(chunks) == 3
@@ -313,29 +254,9 @@ def test_chunk_audio_file_custom_duration(tmp_path: Path) -> None:
 
 def test_chunk_audio_file_valid_audio(tmp_path: Path) -> None:
     """Test chunks contain valid data."""
-    audio_path = tmp_path / "test.mp3"
-    audio_path.write_bytes(b"fake_audio_data")
+    audio_file = make_audio_file(tmp_path, "test.mp3", ".mp3")
 
-    audio_file = AudioFile(
-        path=audio_path,
-        data=b"fake_audio_data",
-        size=100,
-        extension=".mp3",
-        filename="test.mp3",
-    )
-
-    # Mock AudioSegment
-    with patch("infra.whisper.audio.AudioSegment") as mock_audio_class:
-        mock_segment = MagicMock()
-        mock_segment.__len__.return_value = 120000  # 2 minutes
-        mock_segment.__getitem__.return_value = mock_segment
-
-        def mock_export(buffer: BytesIO, format: str) -> None:
-            buffer.write(b"fake_chunk_data")
-
-        mock_segment.export = mock_export
-        mock_audio_class.from_file.return_value = mock_segment
-
+    with make_mock_audio_segment(duration_ms=120000):  # 2 minutes
         chunks = chunk_audio_file(audio_file, chunk_duration_ms=60000)
 
         # Each chunk should have valid data
@@ -346,29 +267,9 @@ def test_chunk_audio_file_valid_audio(tmp_path: Path) -> None:
 
 def test_chunk_audio_file_openai_tuple(tmp_path: Path) -> None:
     """Test .file property returns correct tuple."""
-    audio_path = tmp_path / "test.mp3"
-    audio_path.write_bytes(b"fake_audio_data")
+    audio_file = make_audio_file(tmp_path, "test.mp3", ".mp3")
 
-    audio_file = AudioFile(
-        path=audio_path,
-        data=b"fake_audio_data",
-        size=100,
-        extension=".mp3",
-        filename="test.mp3",
-    )
-
-    # Mock AudioSegment
-    with patch("infra.whisper.audio.AudioSegment") as mock_audio_class:
-        mock_segment = MagicMock()
-        mock_segment.__len__.return_value = 60000  # 1 minute
-        mock_segment.__getitem__.return_value = mock_segment
-
-        def mock_export(buffer: BytesIO, format: str) -> None:
-            buffer.write(b"fake_chunk_data")
-
-        mock_segment.export = mock_export
-        mock_audio_class.from_file.return_value = mock_segment
-
+    with make_mock_audio_segment(duration_ms=60000):  # 1 minute
         chunks = chunk_audio_file(audio_file)
 
         chunk = chunks[0]
@@ -382,17 +283,8 @@ def test_chunk_audio_file_openai_tuple(tmp_path: Path) -> None:
 def test_chunk_audio_file_invalid_audio(tmp_path: Path) -> None:
     """Test invalid audio raises AudioFileError."""
     # Create AudioFile with corrupted/invalid data
-    audio_path = tmp_path / "invalid.mp3"
     invalid_data = b"This is not audio data"
-    audio_path.write_bytes(invalid_data)
-
-    audio_file = AudioFile(
-        filename="invalid.mp3",
-        data=invalid_data,
-        path=audio_path,
-        size=len(invalid_data),
-        extension=".mp3",
-    )
+    audio_file = make_audio_file(tmp_path, "invalid.mp3", ".mp3", data=invalid_data)
 
     # Mock AudioSegment to raise exception on invalid data
     with patch("infra.whisper.audio.AudioSegment") as mock_audio_class:
