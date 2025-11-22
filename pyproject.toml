@@ -27,6 +27,8 @@ dependencies = [
     "pydantic-settings>=2.7.0",
     # Configuration
     "ruamel.yaml>=0.18.0",
+    # Reactive programming
+    "reactivex>=4.0.0",
 ]
 
 [build-system]
