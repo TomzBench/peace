@@ -34,17 +34,7 @@ def _merge_transcription_results(
 ) -> TranscriptionResult:
     """Merge multiple chunk transcription results into a single result.
 
-    Args:
-        chunk_results: List of TranscriptionResult objects from individual chunks
-
-    Returns:
-        Single merged TranscriptionResult
-
-    Notes:
-        - Text is concatenated with newlines
-        - Segments have timestamps adjusted based on chunk positions
-        - Usage statistics are summed if present
-        - Metadata (language, model, etc.) from first chunk is used
+    Raises ValueError.
     """
     if not chunk_results:
         raise ValueError("Cannot merge empty list of chunk results")
@@ -122,19 +112,7 @@ def _create_chunk_transcriber(
     options: TranscriptionOptions,
     audio_file: AudioFile,
 ) -> Callable[[tuple[int, AudioFileChunk]], Awaitable[tuple[int, TranscriptionResult]]]:
-    """Create a function that transcribes a single chunk.
-
-    Pure function factory that creates a transcriber bound to specific
-    client and options, improving testability and reusability.
-
-    Args:
-        client: AsyncOpenAI client for API calls
-        options: Transcription options
-        audio_file: Original AudioFile for metadata
-
-    Returns:
-        Async function that transcribes a chunk and returns indexed result
-    """
+    """Create a function that transcribes a single chunk."""
 
     async def transcribe_chunk(
         indexed_chunk: tuple[int, AudioFileChunk]
@@ -169,16 +147,7 @@ def _create_chunk_transcriber(
 
 
 def _create_chunking_observable(audio_file: AudioFile) -> Observable[list[AudioFileChunk]]:
-    """Create an observable that emits chunked audio.
-
-    Moves chunking into the reactive pipeline for better composability.
-
-    Args:
-        audio_file: AudioFile to chunk
-
-    Returns:
-        Observable that emits a list of AudioFileChunk objects
-    """
+    """Create an observable that emits chunked audio."""
 
     def chunk_audio() -> list[AudioFileChunk]:
         """Chunk audio and log the operation."""
@@ -195,20 +164,7 @@ def _create_transcription_pipeline(
     options: TranscriptionOptions,
     max_concurrent: int = 3,
 ) -> Observable[TranscriptionResult]:
-    """Create the complete RxPy pipeline for audio transcription.
-
-    Combines chunking, parallel transcription, and result merging
-    into a single reactive pipeline.
-
-    Args:
-        audio_file: AudioFile to transcribe
-        client: AsyncOpenAI client for API calls
-        options: Transcription options
-        max_concurrent: Maximum chunks to process concurrently
-
-    Returns:
-        Observable that emits a single merged TranscriptionResult
-    """
+    """Create the complete RxPy pipeline for audio transcription."""
     # Create the transcriber function once, bound to our parameters
     transcriber = _create_chunk_transcriber(client, options, audio_file)
 
@@ -245,14 +201,7 @@ def _create_transcription_pipeline(
 def _merge_sorted_results(
     indexed_results: list[tuple[int, TranscriptionResult]]
 ) -> TranscriptionResult:
-    """Sort indexed results by chunk order and merge them.
-
-    Args:
-        indexed_results: List of (index, TranscriptionResult) tuples
-
-    Returns:
-        Single merged TranscriptionResult
-    """
+    """Sort indexed results by chunk order and merge them."""
     # Sort by index to maintain chunk order
     sorted_results = sorted(indexed_results, key=lambda x: x[0])
     # Extract just the results
@@ -264,16 +213,7 @@ def _merge_sorted_results(
 async def _execute_observable(observable: Observable[TranscriptionResult]) -> TranscriptionResult:
     """Execute an observable in the async context and await its result.
 
-    Bridges the gap between RxPy observables and async/await.
-
-    Args:
-        observable: Observable that emits a single TranscriptionResult
-
-    Returns:
-        The emitted TranscriptionResult
-
-    Raises:
-        Any exception raised during observable execution
+    Raises ValueError.
     """
     # Get current event loop and create scheduler
     loop = asyncio.get_event_loop()
@@ -328,20 +268,7 @@ async def transcribe_audio(
 ) -> TranscriptionResult:
     """Transcribe audio file using OpenAI Whisper API.
 
-    Thin async wrapper that bridges to the RxPy reactive pipeline.
-    Handles chunking, parallel processing, and result merging transparently.
-
-    Args:
-        audio_file: AudioFile with validated audio data and metadata
-        options: Transcription options with composable request/response config
-        client: AsyncOpenAI client (auto-injected if None via @inject_deps)
-        max_concurrent: Maximum number of chunks to transcribe concurrently
-
-    Returns:
-        TranscriptionResult with text, segments, metadata, and usage info
-
-    Raises:
-        TranscriptionError: If transcription fails (wraps OpenAI SDK errors)
+    Raises TranscriptionError.
     """
     options = options or TranscriptionOptions()
     logger.info(f"Transcribing audio file via OpenAI API: {audio_file.filename}")

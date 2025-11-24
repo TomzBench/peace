@@ -14,28 +14,13 @@ from python.infra.db.sql import get_session
 
 
 def get_settings_from_request(request: Request) -> Settings:
-    """Get settings from app.state (FastAPI native pattern).
-
-    Use this if you want explicit dependency injection in routes.
-
-    Args:
-        request: FastAPI request object
-
-    Returns:
-        Application settings
-    """
+    """Get settings from app.state (FastAPI native pattern)."""
     settings: Settings = request.app.state.settings
     return settings
 
 
 def get_settings() -> Settings:
-    """Get settings from context (hybrid pattern).
-
-    Use this for cleaner code - doesn't require Request injection.
-
-    Returns:
-        Application settings
-    """
+    """Get settings from context (hybrid pattern)."""
     return get_settings_from_context()
 
 

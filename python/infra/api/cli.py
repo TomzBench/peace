@@ -14,11 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse command line arguments.
-
-    Returns:
-        Parsed arguments
-    """
+    """Parse command line arguments."""
     parser = argparse.ArgumentParser(
         description="Peace API Server",
         formatter_class=argparse.RawDescriptionHelpFormatter,

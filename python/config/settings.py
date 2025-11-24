@@ -20,13 +20,7 @@ class YamlConfigSettingsSource(PydanticBaseSettingsSource):
     """Custom settings source that loads configuration from YAML files."""
 
     def __init__(self, settings_cls: type[BaseSettings], config_file: str | None = None):
-        """Initialize the YAML settings source.
-
-        Args:
-            settings_cls: The Settings class
-            config_file: Path to YAML config file. If None, uses PEACE_CONFIG_FILE
-                        environment variable, falling back to "config.yaml"
-        """
+        """Initialize the YAML settings source."""
         super().__init__(settings_cls)
         self.config_file = config_file or os.environ.get("PEACE_CONFIG_FILE", "config.yaml")
         self.yaml_data: dict[str, Any] = {}
@@ -47,15 +41,7 @@ class YamlConfigSettingsSource(PydanticBaseSettingsSource):
     def get_field_value(
         self, field_info: FieldInfo, field_name: str
     ) -> tuple[Any, str, bool]:
-        """Get field value from YAML data.
-
-        Args:
-            field_info: Field information
-            field_name: Name of the field
-
-        Returns:
-            Tuple of (field_value, field_key, value_is_complex)
-        """
+        """Get field value from YAML data."""
         field_value = self.yaml_data.get(field_name)
         return field_value, field_name, False
 
@@ -108,24 +94,7 @@ class Settings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        """Customize the settings sources and their priority.
-
-        Priority order (highest to lowest):
-        1. Environment variables
-        2. .env file
-        3. YAML config file
-        4. Default values
-
-        Args:
-            settings_cls: The Settings class
-            init_settings: Settings from __init__ parameters
-            env_settings: Settings from environment variables
-            dotenv_settings: Settings from .env file
-            file_secret_settings: Settings from secret files
-
-        Returns:
-            Tuple of settings sources in priority order
-        """
+        """Customize the settings sources and their priority."""
         # Get config file path from class attribute or use default
         config_file = getattr(cls, "_config_file", None)
 
@@ -141,21 +110,7 @@ class Settings(BaseSettings):
     def load(cls, config_file: str | None = None) -> "Settings":
         """Load settings from YAML file with environment variable overrides.
 
-        Priority order (highest to lowest):
-        1. Environment variables
-        2. .env file
-        3. YAML config file
-        4. Default values
-
-        Args:
-            config_file: Path to YAML config file. If None, uses PEACE_CONFIG_FILE
-                        environment variable, falling back to "config.yaml"
-
-        Returns:
-            Settings instance with merged configuration
-
-        Raises:
-            ValidationError: If configuration validation fails (with helpful error context)
+        Raises ValidationError.
         """
         # Determine the actual config file path being used
         actual_config_file = config_file or os.environ.get("PEACE_CONFIG_FILE", "config.yaml")
@@ -180,14 +135,7 @@ _settings_context: ContextVar[Settings | None] = ContextVar("settings", default=
 
 
 def get_settings() -> Settings:
-    """Get the current settings.
-
-    This first checks the ContextVar (set by app factory),
-    then falls back to creating settings from YAML config.
-
-    Returns:
-        Application settings
-    """
+    """Get the current settings."""
     settings = _settings_context.get()
     if settings is None:
         # Fallback to loading from YAML (for backwards compatibility or CLI usage)
@@ -197,21 +145,13 @@ def get_settings() -> Settings:
 
 
 def set_settings(settings: Settings) -> None:
-    """Set settings in context (called by app factory).
-
-    Args:
-        settings: Settings instance to use
-    """
+    """Set settings in context (called by app factory)."""
     _settings_context.set(settings)
     configure_logging(settings)
 
 
 def configure_logging(settings: Settings) -> None:
-    """Configure logging based on settings.
-
-    Args:
-        settings: Settings to use for log configuration
-    """
+    """Configure logging based on settings."""
     logging.basicConfig(
         level=getattr(logging, settings.log_level.upper()),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",

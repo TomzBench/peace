@@ -14,14 +14,7 @@ MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 def open_audio_file(path: Path) -> AudioFile:
     """Open and read audio file, returning AudioFile with metadata.
 
-    Args:
-        path: Path to audio file
-
-    Returns:
-        AudioFile with file contents and metadata
-
-    Raises:
-        AudioFileError: If file is invalid or unsupported
+    Raises AudioFileError.
     """
     if not path.exists():
         raise AudioFileError(f"Audio file not found: {path}", str(path))
@@ -58,18 +51,7 @@ def chunk_audio_file(
 ) -> list[AudioFileChunk]:
     """Split audio into time-based chunks in-memory.
 
-    Uses pydub to split audio by duration, ensuring each chunk
-    is a valid audio file that can be processed by Whisper API.
-
-    Args:
-        audio_file: AudioFile to chunk
-        chunk_duration_ms: Duration per chunk in ms (default 5min)
-
-    Returns:
-        List of AudioFileChunk with valid audio data
-
-    Raises:
-        AudioFileError: If audio processing fails
+    Raises AudioFileError.
     """
     try:
         # Load audio from bytes

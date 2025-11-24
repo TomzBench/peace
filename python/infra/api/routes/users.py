@@ -30,15 +30,7 @@ async def create_user_endpoint(
 ) -> User:
     """Create a new user.
 
-    Args:
-        user_data: User creation data
-        session: Database session
-
-    Returns:
-        Created user
-
-    Raises:
-        HTTPException: If email already exists
+    Raises HTTPException.
     """
     logger.debug(f"POST /users/ - Creating user with email: {user_data.email}")
 
@@ -65,15 +57,7 @@ async def get_user_endpoint(
 ) -> User:
     """Get a user by ID.
 
-    Args:
-        user_id: User ID
-        session: Database session
-
-    Returns:
-        User data
-
-    Raises:
-        HTTPException: If user not found
+    Raises HTTPException.
     """
     logger.debug(f"GET /users/{user_id} - Fetching user")
     user = await get_user_by_id(session, user_id)
@@ -92,17 +76,7 @@ async def list_users_endpoint(
     limit: int = Query(100, ge=1, le=100, description="Maximum number of records to return"),
     active_only: bool = Query(False, description="Only return active users"),
 ) -> list[User]:
-    """List users with pagination.
-
-    Args:
-        skip: Number of records to skip
-        limit: Maximum number of records to return
-        active_only: Only return active users
-        session: Database session
-
-    Returns:
-        List of users
-    """
+    """List users with pagination."""
     logger.debug(
         dedent(f"""
             GET /users/ - Listing users
@@ -132,16 +106,7 @@ async def update_user_endpoint(
 ) -> User:
     """Update a user.
 
-    Args:
-        user_id: User ID
-        user_data: User update data
-        session: Database session
-
-    Returns:
-        Updated user
-
-    Raises:
-        HTTPException: If user not found
+    Raises HTTPException.
     """
     logger.debug(f"PATCH /users/{user_id} - Updating user")
     user = await get_user_by_id(session, user_id)
@@ -171,12 +136,7 @@ async def delete_user_endpoint(
 ) -> None:
     """Delete a user.
 
-    Args:
-        user_id: User ID
-        session: Database session
-
-    Raises:
-        HTTPException: If user not found
+    Raises HTTPException.
     """
     logger.debug(f"DELETE /users/{user_id} - Deleting user")
     user = await get_user_by_id(session, user_id)

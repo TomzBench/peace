@@ -1,22 +1,4 @@
-"""Dependency injection for Whisper module.
-
-Provides a framework-agnostic dependency injection system for managing
-OpenAI client creation, settings access, and testing support.
-
-Examples:
-    Using dependency injection with decorator:
-    >>> from python.infra.whisper.dependencies import inject_deps
-    >>> @inject_deps
-    ... def my_function(client: OpenAI | None = None):
-    ...     # client is automatically injected
-    ...     return client.models.list()
-
-    Override dependencies for testing:
-    >>> from python.infra.whisper.dependencies import override_dependency
-    >>> mock_client = Mock()
-    >>> with override_dependency("client", mock_client):
-    ...     result = transcribe_audio(audio_file)
-"""
+"""Dependency injection for Whisper module."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
@@ -38,18 +20,7 @@ _dependency_overrides: dict[str, Callable[[], Any]] = {}
 
 
 def get_openai_client() -> AsyncOpenAI:
-    """Get configured async OpenAI client.
-
-    Creates a new client on each call. The OpenAI SDK will validate
-    the API key when making requests.
-
-    Returns:
-        Configured AsyncOpenAI client instance
-
-    Examples:
-        >>> client = get_openai_client()
-        >>> response = await client.audio.transcriptions.create(...)
-    """
+    """Get configured async OpenAI client."""
     # Check for override first (testing)
     if "client" in _dependency_overrides:
         return cast("AsyncOpenAI", _dependency_overrides["client"]())
@@ -71,25 +42,7 @@ def get_openai_client() -> AsyncOpenAI:
 
 
 def inject_deps(func: F) -> F:
-    """Decorator to inject dependencies into function parameters.
-
-    Automatically provides dependencies for parameters with None defaults.
-    Supported dependencies:
-    - client: AsyncOpenAI -> get_openai_client()
-    - settings: Settings -> get_settings()
-
-    Args:
-        func: Function to decorate (can be sync or async)
-
-    Returns:
-        Decorated function with dependency injection
-
-    Examples:
-        >>> @inject_deps
-        ... async def transcribe(audio: AudioFile, client: AsyncOpenAI | None = None):
-        ...     # client is automatically provided if None
-        ...     return await client.audio.transcriptions.create(...)
-    """
+    """Decorator to inject dependencies into function parameters."""
     import inspect
 
     is_async = inspect.iscoroutinefunction(func)
@@ -152,21 +105,7 @@ def inject_deps(func: F) -> F:
 
 @contextmanager
 def override_dependency(name: str, factory: Callable[[], Any]) -> Generator[None, None, None]:
-    """Override a dependency for testing.
-
-    Args:
-        name: Dependency name ("client" or "settings")
-        factory: Callable that returns the mock/override value
-
-    Yields:
-        None
-
-    Examples:
-        >>> mock_client = Mock()
-        >>> with override_dependency("client", lambda: mock_client):
-        ...     result = transcribe_audio(audio_file)
-        ...     # Uses mock_client instead of real OpenAI client
-    """
+    """Override a dependency for testing."""
     # Save previous override if exists (for nested overrides)
     previous = _dependency_overrides.get(name)
     _dependency_overrides[name] = factory

@@ -23,15 +23,7 @@ class OpenAIFile(BaseModel):
 
     @property
     def file(self) -> tuple[str, bytes]:
-        """Get OpenAI SDK-compatible tuple format.
-
-        Returns:
-            Tuple of (filename, data) ready for any OpenAI file upload API
-
-        Examples:
-            >>> openai_file = OpenAIFile(filename="audio.mp3", data=b"...")
-            >>> client.audio.transcriptions.create(file=openai_file.file)
-        """
+        """Get OpenAI SDK-compatible tuple format."""
         return (self.filename, self.data)
 
 
@@ -65,7 +57,6 @@ class AudioFileChunk(OpenAIFile):
     original_path: Path  # Original file path
 
     def __repr__(self) -> str:
-        """String representation for logging."""
         return (
             f"AudioFileChunk(chunk={self.chunk_index + 1}/{self.total_chunks}, "
             f"time={self.start_time_ms}-{self.end_time_ms}ms, "
@@ -131,7 +122,6 @@ class TranscriptionResult(BaseModel):
     translation: str | None = None  # English translation (if applicable)
 
     def __repr__(self) -> str:
-        """Compact string representation suitable for logging."""
         duration_str = f"{self.duration:.1f}s" if self.duration else "unknown"
         return (
             f"TranscriptionResult("
@@ -197,20 +187,7 @@ def flatten_options(
     exclude_fields: set[str] | None = None,
     exclude_none: bool = True,
 ) -> dict[str, Any]:
-    """Flatten a composable dataclass into a flat dict for API calls.
-
-    Recursively merges fields from nested dataclasses into a single flat dict.
-    Useful for converting composable option objects into the flat parameter
-    structure expected by API clients.
-
-    Args:
-        opts: Dataclass instance with potentially nested dataclass fields
-        exclude_fields: Field names to exclude from flattening (e.g., 'request_config')
-        exclude_none: Filter out None values from result
-
-    Returns:
-        Flattened dict suitable for API calls
-    """
+    """Flatten a composable dataclass into a flat dict for API calls."""
     from dataclasses import asdict
 
     exclude_fields = exclude_fields or set()

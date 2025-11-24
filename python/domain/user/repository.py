@@ -27,15 +27,7 @@ async def create_user(
     session: AsyncSession,
     user_data: dict[str, Any],
 ) -> User:
-    """Create a new user.
-
-    Args:
-        session: Database session
-        user_data: Dictionary of user fields
-
-    Returns:
-        Created user
-    """
+    """Create a new user."""
     logger.debug(
         dedent(f"""
             Repository: Creating user
@@ -52,15 +44,7 @@ async def create_user(
 
 
 async def get_user_by_id(session: AsyncSession, user_id: int) -> User | None:
-    """Get user by ID.
-
-    Args:
-        session: Database session
-        user_id: User ID
-
-    Returns:
-        User if found, None otherwise
-    """
+    """Get user by ID."""
     logger.debug(f"Repository: Querying user by ID={user_id}")
     result = await session.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -69,15 +53,7 @@ async def get_user_by_id(session: AsyncSession, user_id: int) -> User | None:
 
 
 async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
-    """Get user by email.
-
-    Args:
-        session: Database session
-        email: User email
-
-    Returns:
-        User if found, None otherwise
-    """
+    """Get user by email."""
     logger.debug(f"Repository: Querying user by email={email}")
     result = await session.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
@@ -86,15 +62,7 @@ async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
 
 
 async def get_user_by_username(session: AsyncSession, username: str) -> User | None:
-    """Get user by username.
-
-    Args:
-        session: Database session
-        username: Username
-
-    Returns:
-        User if found, None otherwise
-    """
+    """Get user by username."""
     logger.debug(f"Repository: Querying user by username={username}")
     result = await session.execute(select(User).where(User.username == username))
     user = result.scalar_one_or_none()
@@ -106,15 +74,7 @@ async def list_users(
     session: AsyncSession,
     filters: UserListFilter | None = None,
 ) -> list[User]:
-    """List users with pagination and filtering.
-
-    Args:
-        session: Database session
-        filters: Pagination and filtering options
-
-    Returns:
-        List of users
-    """
+    """List users with pagination and filtering."""
     filters = filters or UserListFilter()
     logger.debug(
         dedent(f"""
@@ -141,16 +101,7 @@ async def update_user(
     user: User,
     update_data: dict[str, Any],
 ) -> User:
-    """Update user fields.
-
-    Args:
-        session: Database session
-        user: User to update
-        update_data: Dictionary of fields to update
-
-    Returns:
-        Updated user
-    """
+    """Update user fields."""
     logger.debug(f"Repository: Updating user ID={user.id}")
 
     # Update fields from dictionary
@@ -169,12 +120,7 @@ async def update_user(
 
 
 async def delete_user(session: AsyncSession, user: User) -> None:
-    """Delete a user.
-
-    Args:
-        session: Database session
-        user: User to delete
-    """
+    """Delete a user."""
     logger.debug(f"Repository: Deleting user ID={user.id}")
     await session.delete(user)
     await session.commit()
@@ -182,15 +128,7 @@ async def delete_user(session: AsyncSession, user: User) -> None:
 
 
 async def soft_delete_user(session: AsyncSession, user: User) -> User:
-    """Soft delete a user by marking as inactive.
-
-    Args:
-        session: Database session
-        user: User to soft delete
-
-    Returns:
-        Updated user
-    """
+    """Soft delete a user by marking as inactive."""
     logger.debug(f"Repository: Soft deleting user ID={user.id}")
     result = await update_user(session, user, {"is_active": False})
     logger.debug(f"Repository: User ID={user.id} soft deleted")

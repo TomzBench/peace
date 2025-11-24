@@ -74,12 +74,6 @@ def mock_translated_result() -> dict[str, Any]:
 @pytest.fixture
 def temp_audio_file(tmp_path: Path) -> Path:
     """Fixture providing a temporary audio file path.
-
-    Args:
-        tmp_path: Pytest tmp_path fixture
-
-    Returns:
-        Path to temporary audio file
     """
     audio_file = tmp_path / "test_audio.mp3"
     # Create an empty file (actual audio content not needed for most tests)
@@ -90,11 +84,5 @@ def temp_audio_file(tmp_path: Path) -> Path:
 @pytest.fixture
 def invalid_audio_file(tmp_path: Path) -> Path:
     """Fixture providing an invalid audio file path.
-
-    Args:
-        tmp_path: Pytest tmp_path fixture
-
-    Returns:
-        Path to file that doesn't exist
     """
     return tmp_path / "nonexistent.mp3"

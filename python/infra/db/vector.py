@@ -17,13 +17,7 @@ _client: AsyncQdrantClient | None = None
 
 
 def get_vector_db() -> AsyncQdrantClient:
-    """Get the QDrant database client.
-
-    Client is created lazily on first access and reused for subsequent calls.
-
-    Returns:
-        QDrant async client instance
-    """
+    """Get the QDrant database client."""
     global _client
     if _client is None:
         settings = get_settings()
@@ -52,11 +46,7 @@ async def close_vector_db() -> None:
 
 
 async def init_vector_db() -> None:
-    """Initialize vector database client.
-
-    This is optional - client is created lazily on first access.
-    Call this explicitly if you want to ensure connection at startup.
-    """
+    """Initialize vector database client."""
     logger.info("Initializing vector database client")
     get_vector_db()
     logger.info("Vector database client initialized")

@@ -17,6 +17,10 @@ class Thumbnail(BaseModel):
     width: int | None = None
     height: int | None = None
 
+    def __repr__(self) -> str:
+        dims = f"{self.width}x{self.height}" if self.width and self.height else "unknown"
+        return f"Thumbnail(url={str(self.url)!r}, dimensions={dims})"
+
 
 class Format(BaseModel):
     """Video or audio format information."""
@@ -36,6 +40,19 @@ class Format(BaseModel):
     height: int | None = None
     resolution: str | None = None
 
+    def __repr__(self) -> str:
+        parts = [f"id={self.format_id}", f"ext={self.ext}"]
+        if self.resolution:
+            parts.append(f"res={self.resolution}")
+        elif self.width and self.height:
+            parts.append(f"res={self.width}x{self.height}")
+        if self.format_note:
+            parts.append(f"note={self.format_note!r}")
+        if self.filesize:
+            mb = self.filesize / (1024 * 1024)
+            parts.append(f"size={mb:.1f}MB")
+        return f"Format({', '.join(parts)})"
+
 
 class Transcription(BaseModel):
     """Video transcription/subtitle."""
@@ -44,6 +61,14 @@ class Transcription(BaseModel):
     text: str
     auto_generated: bool = False
     ext: str = "vtt"
+
+    def __repr__(self) -> str:
+        text_preview = self.text[:50] + "..." if len(self.text) > 50 else self.text
+        auto = "auto" if self.auto_generated else "manual"
+        return (
+            f"Transcription(lang={self.language!r}, {auto}, "
+            f"ext={self.ext!r}, text={text_preview!r})"
+        )
 
 
 class VideoInfo(BaseModel):
@@ -86,6 +111,26 @@ class VideoInfo(BaseModel):
     downloaded_file: Path | None = None
     download_timestamp: datetime | None = None
 
+    def __repr__(self) -> str:
+        parts = [
+            f"id={self.video_id!r}",
+            f"title={self.title[:30]!r}..." if len(self.title) > 30 else f"title={self.title!r}",
+        ]
+        if self.duration:
+            mins = self.duration // 60
+            secs = self.duration % 60
+            parts.append(f"duration={mins}:{secs:02d}")
+        if self.view_count:
+            if self.view_count >= 1_000_000:
+                parts.append(f"views={self.view_count/1_000_000:.1f}M")
+            elif self.view_count >= 1_000:
+                parts.append(f"views={self.view_count/1_000:.1f}K")
+            else:
+                parts.append(f"views={self.view_count}")
+        if self.downloaded_file:
+            parts.append(f"downloaded={self.downloaded_file.name}")
+        return f"VideoInfo({', '.join(parts)})"
+
 
 @dataclass
 class VideoDownloadOptions:
@@ -93,6 +138,10 @@ class VideoDownloadOptions:
 
     format: str = "best"
     ydl_opts: dict[str, Any] = field(default_factory=dict)
+
+    def __repr__(self) -> str:
+        opts_count = len(self.ydl_opts)
+        return f"VideoDownloadOptions(format={self.format!r}, ydl_opts={{{opts_count} items}})"
 
 
 @dataclass
@@ -102,3 +151,10 @@ class AudioDownloadOptions:
     format: str = "mp3"
     quality: str = "192K"
     ydl_opts: dict[str, Any] = field(default_factory=dict)
+
+    def __repr__(self) -> str:
+        opts_count = len(self.ydl_opts)
+        return (
+            f"AudioDownloadOptions(format={self.format!r}, "
+            f"quality={self.quality!r}, ydl_opts={{{opts_count} items}})"
+        )
