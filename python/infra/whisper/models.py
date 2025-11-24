@@ -116,7 +116,7 @@ class UsageTokens(BaseModel):
 # Pydantic models for API responses
 
 
-class TranscriptionResult(BaseModel):
+class Transcription(BaseModel):
     """Complete transcription result from Whisper.
 
     Includes both OpenAI API response metadata and our wrapper metadata.
@@ -144,7 +144,7 @@ class TranscriptionResult(BaseModel):
     def __repr__(self) -> str:
         duration_str = f"{self.duration:.1f}s" if self.duration else "unknown"
         return (
-            f"TranscriptionResult("
+            f"Transcription("
             f"file={self.audio_file.name!r}, "
             f"chars={len(self.text)}, "
             f"segments={len(self.segments)}, "

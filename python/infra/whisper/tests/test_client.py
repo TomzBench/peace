@@ -11,8 +11,8 @@ from python.infra.whisper.exceptions import TranscriptionError
 from python.infra.whisper.models import (
     AudioFile,
     AudioFileChunk,
+    Transcription,
     TranscriptionOptions,
-    TranscriptionResult,
     TranscriptionSegment,
     UsageDuration,
     UsageTokens,
@@ -60,7 +60,7 @@ def make_mock_segments(count: int) -> list[TranscriptionSegment]:
 
 
 @dataclass
-class TranscriptionResultExpect:
+class TranscriptionExpect:
     text: str
     duration: float
     segments: list[TranscriptionSegment] | None = None
@@ -77,7 +77,7 @@ class TranscriptionResultExpect:
         return mock_response
 
 
-def assert_transcription_result(result: TranscriptionResult, e: TranscriptionResultExpect) -> None:
+def assert_transcription_result(result: Transcription, e: TranscriptionExpect) -> None:
     assert result.text == e.text
     assert result.language == e.language
     assert result.duration == e.duration
@@ -117,7 +117,7 @@ async def test_transcribe_audio_success(mock_chunk_audio_file: Mock) -> None:
         extension=".mp3",
         filename="test.mp3",
     )
-    expect = TranscriptionResultExpect(
+    expect = TranscriptionExpect(
         text="Transcribed text",
         duration=10.5,
         segments=make_mock_segments(1),
@@ -155,7 +155,7 @@ async def test_transcribe_audio_with_custom_options(mock_chunk_audio_file: Mock)
     )
 
     # Create expectation with Spanish language
-    expect = TranscriptionResultExpect(
+    expect = TranscriptionExpect(
         text="Custom transcription",
         duration=15.0,
         segments=[],
@@ -206,7 +206,7 @@ async def test_transcribe_audio_with_usage_data(mock_chunk_audio_file: Mock) -> 
     )
 
     # Create expectation with usage data
-    expect = TranscriptionResultExpect(
+    expect = TranscriptionExpect(
         text="Text",
         duration=120.5,
         segments=[],
@@ -241,7 +241,7 @@ async def test_transcribe_audio_with_token_usage(mock_chunk_audio_file: Mock) ->
     )
 
     # Create expectation with token usage data
-    expect = TranscriptionResultExpect(
+    expect = TranscriptionExpect(
         text="Text",
         duration=10.0,
         segments=[],
@@ -351,7 +351,7 @@ async def test_transcribe_audio_with_dependency_override(mock_chunk_audio_file: 
     )
 
     # Create expectation
-    expect = TranscriptionResultExpect(
+    expect = TranscriptionExpect(
         text="Dependency override test",
         duration=5.0,
         segments=[],
@@ -387,7 +387,7 @@ async def test_transcribe_audio_with_explicit_client_injection(mock_chunk_audio_
     )
 
     # Create expectation with Spanish language
-    expect = TranscriptionResultExpect(
+    expect = TranscriptionExpect(
         text="Explicit injection test",
         duration=8.0,
         segments=[],

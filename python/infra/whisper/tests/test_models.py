@@ -6,8 +6,8 @@ from pathlib import Path
 from python.infra.whisper.models import (
     OpenAIRequestConfig,
     ResponseOptions,
+    Transcription,
     TranscriptionOptions,
-    TranscriptionResult,
     TranscriptionSegment,
     TranslateOptions,
     flatten_options,
@@ -42,11 +42,11 @@ def test_segment_creation() -> None:
 
 
 def test_transcription_result_creation() -> None:
-    """Test creating a TranscriptionResult model."""
+    """Test creating a Transcription model."""
     audio_file = Path("/tmp/test.mp3")
     timestamp = datetime.now()
 
-    result = TranscriptionResult(
+    result = Transcription(
         text="Full transcription text",
         segments=[],
         language="en",
@@ -67,7 +67,7 @@ def test_transcription_result_creation() -> None:
 
 
 def test_transcription_result_with_segments() -> None:
-    """Test TranscriptionResult with segments (SDK TranscriptionSegment)."""
+    """Test Transcription with segments (SDK TranscriptionSegment)."""
     segments = [
         TranscriptionSegment(
             id=0,
@@ -95,7 +95,7 @@ def test_transcription_result_with_segments() -> None:
         ),
     ]
 
-    result = TranscriptionResult(
+    result = Transcription(
         text="First segment Second segment",
         segments=segments,
         language="en",
@@ -109,8 +109,8 @@ def test_transcription_result_with_segments() -> None:
 
 
 def test_transcription_result_with_translation() -> None:
-    """Test TranscriptionResult with translation."""
-    result = TranscriptionResult(
+    """Test Transcription with translation."""
+    result = Transcription(
         text="Original text",
         language="es",
         audio_file=Path("/tmp/test.mp3"),

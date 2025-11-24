@@ -19,8 +19,8 @@ from .models import (
     AudioFile,
     AudioFileChunk,
     ResponseOptions,
+    Transcription,
     TranscriptionOptions,
-    TranscriptionResult,
     TranscriptionSegment,
     UsageDuration,
     UsageTokens,
@@ -31,8 +31,8 @@ logger = logging.getLogger(__name__)
 
 
 def _merge_transcription_results(
-    chunk_results: list[TranscriptionResult],
-) -> TranscriptionResult:
+    chunk_results: list[Transcription],
+) -> Transcription:
     """Merge multiple chunk transcription results into a single result.
 
     Raises ValueError.
@@ -91,7 +91,7 @@ def _merge_transcription_results(
     # Use metadata from first chunk
     first_chunk = chunk_results[0]
 
-    return TranscriptionResult(
+    return Transcription(
         object="transcription",
         usage=merged_usage,
         text=merged_text,
@@ -108,12 +108,12 @@ def _create_chunk_transcriber(
     client: AsyncOpenAI,
     options: TranscriptionOptions,
     audio_file: AudioFile,
-) -> Callable[[tuple[int, AudioFileChunk]], Awaitable[tuple[int, TranscriptionResult]]]:
+) -> Callable[[tuple[int, AudioFileChunk]], Awaitable[tuple[int, Transcription]]]:
     """Create a function that transcribes a single chunk."""
 
     async def transcribe_chunk(
         indexed_chunk: tuple[int, AudioFileChunk]
-    ) -> tuple[int, TranscriptionResult]:
+    ) -> tuple[int, Transcription]:
         """Transcribe a single chunk and return result with index."""
         index, chunk = indexed_chunk
         total_chunks = chunk.total_chunks
@@ -134,7 +134,7 @@ def _create_chunk_transcriber(
                 usage = UsageTokens(**usage_dict)
 
         # Build result for this chunk
-        result = TranscriptionResult(
+        result = Transcription(
             object="transcription",
             usage=usage,
             text=response.text,
@@ -169,12 +169,12 @@ def _create_transcription_pipeline(
     client: AsyncOpenAI,
     options: TranscriptionOptions,
     max_concurrent: int = 3,
-) -> Observable[TranscriptionResult]:
+) -> Observable[Transcription]:
     """Create the complete RxPy pipeline for audio transcription."""
     # Create the transcriber function once, bound to our parameters
     transcriber = _create_chunk_transcriber(client, options, audio_file)
 
-    def process_chunks(chunks: list[AudioFileChunk]) -> Observable[TranscriptionResult]:
+    def process_chunks(chunks: list[AudioFileChunk]) -> Observable[Transcription]:
         """Process chunks through transcription pipeline."""
         if not chunks:
             raise ValueError("No chunks to process")
@@ -185,7 +185,7 @@ def _create_transcription_pipeline(
         # Build the transcription pipeline
         def create_future_observable(
             chunk: tuple[int, AudioFileChunk]
-        ) -> Observable[tuple[int, TranscriptionResult]]:
+        ) -> Observable[tuple[int, Transcription]]:
             """Convert chunk to observable from future."""
             return rx.from_future(asyncio.ensure_future(transcriber(chunk)))
 
@@ -205,8 +205,8 @@ def _create_transcription_pipeline(
 
 
 def _merge_sorted_results(
-    indexed_results: list[tuple[int, TranscriptionResult]]
-) -> TranscriptionResult:
+    indexed_results: list[tuple[int, Transcription]]
+) -> Transcription:
     """Sort indexed results by chunk order and merge them."""
     # Sort by index to maintain chunk order
     sorted_results = sorted(indexed_results, key=lambda x: x[0])
@@ -216,7 +216,7 @@ def _merge_sorted_results(
     return _merge_transcription_results(chunk_results)
 
 
-async def _execute_observable(observable: Observable[TranscriptionResult]) -> TranscriptionResult:
+async def _execute_observable(observable: Observable[Transcription]) -> Transcription:
     """Execute an observable in the async context and await its result.
 
     Raises ValueError.
@@ -226,11 +226,11 @@ async def _execute_observable(observable: Observable[TranscriptionResult]) -> Tr
     scheduler = AsyncIOScheduler(loop=loop)
 
     # Create containers for result and error
-    result_container: list[TranscriptionResult] = []
+    result_container: list[Transcription] = []
     error_container: list[Exception] = []
     completion = asyncio.Event()
 
-    def on_next(result: TranscriptionResult) -> None:
+    def on_next(result: Transcription) -> None:
         """Handle emitted result."""
         result_container.append(result)
 
@@ -271,7 +271,7 @@ async def transcribe_audio(
     options: TranscriptionOptions | None = None,
     client: AsyncOpenAI | None = None,
     max_concurrent: int = 3,
-) -> TranscriptionResult:
+) -> Transcription:
     """Transcribe audio file using OpenAI Whisper API.
 
     Raises TranscriptionError.

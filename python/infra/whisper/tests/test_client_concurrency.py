@@ -8,7 +8,7 @@ from reactivex.testing import ReactiveTest, TestScheduler
 
 from python.infra.whisper.models import (
     AudioFileChunk,
-    TranscriptionResult,
+    Transcription,
 )
 
 
@@ -26,9 +26,9 @@ def make_mock_chunk(idx: int) -> AudioFileChunk:
     )
 
 
-def make_mock_result(idx: int) -> TranscriptionResult:
-    """Create mock TranscriptionResult."""
-    return TranscriptionResult(
+def make_mock_result(idx: int) -> Transcription:
+    """Create mock Transcription."""
+    return Transcription(
         object="transcription",
         usage=None,
         text=f"Chunk {idx} text",
@@ -239,7 +239,7 @@ def test_map_operator_processes_collected_list() -> None:
     )
 
     # Simulate pipeline: merge -> to_list -> map (merge results)
-    def merge_results(indexed_list: list[tuple[int, TranscriptionResult]]) -> str:
+    def merge_results(indexed_list: list[tuple[int, Transcription]]) -> str:
         """Simulate merging indexed results."""
         indexed_list.sort(key=lambda x: x[0])
         texts = [result.text for _, result in indexed_list]
@@ -294,7 +294,7 @@ def test_out_of_order_completion_maintains_sorted_output() -> None:
         ReactiveTest.on_completed(220)
     )
 
-    def sort_and_merge(indexed_list: list[tuple[int, TranscriptionResult]]) -> list[int]:
+    def sort_and_merge(indexed_list: list[tuple[int, Transcription]]) -> list[int]:
         """Sort by index and return indices."""
         indexed_list.sort(key=lambda x: x[0])
         return [idx for idx, _ in indexed_list]
