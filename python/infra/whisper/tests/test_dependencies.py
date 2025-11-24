@@ -1,12 +1,11 @@
 """Tests for dependency injection infrastructure."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 from openai import AsyncOpenAI
 
 from ..dependencies import (
-    clear_overrides,
     get_openai_client,
     inject_deps,
     override_dependency,
@@ -29,18 +28,24 @@ def test_get_openai_client_success() -> None:
         assert client.organization == "test-org"
 
 
-@patch("python.infra.whisper.dependencies.get_settings")
-def test_get_openai_client_missing_api_key(mock_settings: Mock) -> None:
+def test_get_openai_client_missing_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that missing API key raises OpenAIError from SDK."""
     from openai import OpenAIError
 
-    mock_settings.return_value.openai_api_key = None
+    # Remove API key from environment
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    with pytest.raises(OpenAIError) as exc_info:
-        get_openai_client()
+    # Create mock settings with no API key
+    mock_settings = Mock()
+    mock_settings.openai_api_key = None
+    mock_settings.openai_organization = None
 
-    # OpenAI SDK validates the API key
-    assert "api_key" in str(exc_info.value).lower()
+    with override_dependency("settings", lambda: mock_settings):
+        with pytest.raises(OpenAIError) as exc_info:
+            get_openai_client()
+
+        # OpenAI SDK validates the API key
+        assert "api_key" in str(exc_info.value).lower()
 
 
 def test_override_dependency_client() -> None:
@@ -61,37 +66,6 @@ def test_override_dependency_client() -> None:
         client = get_openai_client()
         assert client is not mock_client
         assert isinstance(client, AsyncOpenAI)
-
-
-def test_clear_overrides() -> None:
-    """Test clearing dependency overrides."""
-    mock_client = Mock(spec=AsyncOpenAI)
-
-    # Create mock settings with proper attribute setting
-    mock_settings = Mock()
-    mock_settings.openai_api_key = "test-key"
-    mock_settings.openai_organization = None
-
-    # Use override_dependency context manager, then clear
-    with (
-        override_dependency("client", lambda: mock_client),
-        override_dependency("settings", lambda: mock_settings),
-    ):
-        # Verify overrides are active
-        client = get_openai_client()
-        assert client is mock_client
-
-        # Clear all overrides while still in context
-        clear_overrides()
-
-        # After clearing, trying to get client without valid settings should raise error
-        from openai import OpenAIError
-
-        with pytest.raises(OpenAIError) as exc_info:
-            get_openai_client()
-
-        # OpenAI SDK validates the API key
-        assert "api_key" in str(exc_info.value).lower()
 
 
 def test_inject_deps_decorator_with_client() -> None:

@@ -112,7 +112,7 @@ def _build_video_info(
 
     video_info_dict = {
         **info,
-        "url": url,
+        "url": info.get("webpage_url", info.get("url", url)),  # fallback chain
         "formats": formats,
         "thumbnails": thumbnails,
     }
@@ -206,7 +206,7 @@ async def download_audio(
     ydl_opts = {
         **_BASE_YDL_OPTS,
         "format": "bestaudio/best",
-        "outtmpl": str(output_path / "%(title)s.%(ext)s"),
+        "outtmpl": str(output_path / "%(id)s.%(ext)s"),
         "postprocessors": [
             {
                 "key": "FFmpegExtractAudio",

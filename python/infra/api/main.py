@@ -7,7 +7,10 @@ from fastapi import FastAPI
 
 from python.config import Settings, set_settings
 from python.infra.api.routes import app as app_routes
-from python.infra.api.routes import users
+from python.infra.api.routes import audio, users
+from python.infra.api.routes.exceptions import register_exception_handlers
+
+# from python.infra.api.routes import audio, users
 from python.infra.db import shutdown_db, startup_db
 
 
@@ -47,5 +50,7 @@ def create_app(custom_settings: Settings | None = None) -> FastAPI:
     # Include routers
     app.include_router(app_routes.router)
     app.include_router(users.router)
+    app.include_router(audio.router)
+    register_exception_handlers(app)
 
     return app

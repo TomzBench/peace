@@ -1,3 +1,4 @@
+import asyncio
 from io import BytesIO
 from math import ceil
 from pathlib import Path
@@ -43,6 +44,14 @@ def open_audio_file(path: Path) -> AudioFile:
         extension=ext,
         filename=path.name,
     )
+
+
+async def open_audio_file_async(path: Path) -> AudioFile:
+    """Open and read audio file asynchronously.
+
+    Raises AudioFileError.
+    """
+    return await asyncio.to_thread(open_audio_file, path)
 
 
 def chunk_audio_file(

@@ -65,6 +65,7 @@ dmypy.json
 *.db
 *.sqlite
 *.sqlite3
+*.downloads
 
 # Environment variables
 .env

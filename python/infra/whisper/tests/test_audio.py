@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ..audio import MAX_FILE_SIZE_BYTES, chunk_audio_file, open_audio_file
+from ..audio import MAX_FILE_SIZE_BYTES, chunk_audio_file, open_audio_file, open_audio_file_async
 from ..exceptions import AudioFileError
 from ..models import AudioFile, AudioFileChunk
 
@@ -162,6 +162,35 @@ def test_open_audio_file_returns_complete_data(tmp_path: Path) -> None:
     assert len(result.data) == 1000
     assert result.data == test_data
     assert result.size == 1000
+
+
+@pytest.mark.asyncio
+async def test_open_audio_file_async_success(tmp_path: Path) -> None:
+    """Test async wrapper successfully opens valid audio file."""
+    audio_file = tmp_path / "test.mp3"
+    test_data = b"fake mp3 data"
+    audio_file.write_bytes(test_data)
+
+    result = await open_audio_file_async(audio_file)
+
+    assert isinstance(result, AudioFile)
+    assert result.data == test_data
+    assert result.path == audio_file
+    assert result.size == len(test_data)
+    assert result.extension == ".mp3"
+    assert result.filename == "test.mp3"
+
+
+@pytest.mark.asyncio
+async def test_open_audio_file_async_file_not_found() -> None:
+    """Test async wrapper raises AudioFileError for missing file."""
+    non_existent = Path("/nonexistent/file.mp3")
+
+    with pytest.raises(AudioFileError) as exc_info:
+        await open_audio_file_async(non_existent)
+
+    assert "Audio file not found" in str(exc_info.value)
+    assert exc_info.value.file_path == str(non_existent)
 
 
 # Tests for chunk_audio_file

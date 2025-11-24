@@ -22,7 +22,8 @@ from .models import (
     TranscriptionOptions,
     TranscriptionResult,
     TranscriptionSegment,
-    Usage,
+    UsageDuration,
+    UsageTokens,
     flatten_options,
 )
 
@@ -52,7 +53,7 @@ def _merge_transcription_results(
             merged_segments.extend(result.segments)
 
     # Sum usage statistics if present
-    merged_usage: Usage | None = None
+    merged_usage: UsageDuration | UsageTokens | None = None
     if any(result.usage is not None for result in chunk_results):
         # Check if all usage types are the same
         usage_types = {result.usage.type for result in chunk_results if result.usage}
@@ -65,8 +66,6 @@ def _merge_transcription_results(
                     for result in chunk_results
                     if result.usage and hasattr(result.usage, "seconds")
                 )
-                from openai.types.audio.transcription import UsageDuration
-
                 merged_usage = UsageDuration(type="duration", seconds=total_seconds)
             elif usage_type == "tokens":
                 total_input = sum(
@@ -79,8 +78,6 @@ def _merge_transcription_results(
                     for result in chunk_results
                     if result.usage and hasattr(result.usage, "output_tokens")
                 )
-                from openai.types.audio.transcription import UsageTokens
-
                 merged_usage = UsageTokens(
                     type="tokens",
                     input_tokens=total_input,
@@ -127,10 +124,19 @@ def _create_chunk_transcriber(
             file=chunk.file, **flatten_options(options), **asdict(ResponseOptions())
         )
 
+        # Convert OpenAI's Usage object to our discriminated union
+        usage: UsageDuration | UsageTokens | None = None
+        if hasattr(response, "usage") and response.usage:
+            usage_dict = response.usage.model_dump()
+            if usage_dict.get("type") == "duration":
+                usage = UsageDuration(**usage_dict)
+            elif usage_dict.get("type") == "tokens":
+                usage = UsageTokens(**usage_dict)
+
         # Build result for this chunk
         result = TranscriptionResult(
             object="transcription",
-            usage=response.usage if hasattr(response, "usage") else None,
+            usage=usage,
             text=response.text,
             segments=response.segments or [],
             language=response.language,

@@ -3,11 +3,10 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from openai.types.audio import TranscriptionSegment
-from openai.types.audio.transcription import Usage
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class OpenAIFile(BaseModel):
@@ -93,6 +92,27 @@ class ResponseOptions:
     stream: bool = False  # Enable Server-Sent Events streaming
 
 
+# Usage statistics models (discriminated union)
+
+
+class UsageDuration(BaseModel):
+    """OpenAI usage stats for duration-based billing."""
+
+    type: Literal["duration"]
+    seconds: float
+
+
+class UsageTokens(BaseModel):
+    """OpenAI usage stats for token-based billing."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    type: Literal["tokens"]
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+
+
 # Pydantic models for API responses
 
 
@@ -103,9 +123,9 @@ class TranscriptionResult(BaseModel):
     Uses OpenAI SDK types directly for segments and usage.
     """
 
-    # OpenAI API response fields (using SDK types)
+    # OpenAI API response fields
     object: str = "transcription"  # Resource type from API
-    usage: Usage | None = None  # SDK Union[UsageDuration, UsageTokens]
+    usage: UsageDuration | UsageTokens | None = None  # Discriminated by 'type' field
 
     # Transcription data (using SDK types)
     text: str  # Full transcription text

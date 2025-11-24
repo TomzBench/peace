@@ -70,6 +70,7 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "sqlite+aiosqlite:///./peace.db"
     echo_sql: bool = False
+    downloads_dir: Path = Path(".downloads")
 
     # QDrant Vector Database
     qdrant_url: str = "http://localhost:6333"

@@ -1,6 +1,6 @@
 """Whisper audio transcription module."""
 
-from .audio import chunk_audio_file
+from .audio import chunk_audio_file, open_audio_file_async
 from .client import transcribe_audio
 from .dependencies import (
     clear_overrides,
@@ -23,7 +23,8 @@ from .models import (
     TranscriptionOptions,
     TranscriptionResult,
     TranslateOptions,
-    Usage,  # Re-exported SDK type
+    UsageDuration,
+    UsageTokens,
     flatten_options,
 )
 
@@ -40,13 +41,15 @@ __all__ = [
     "TranscriptionOptions",
     "TranscriptionResult",
     "TranslateOptions",
-    "Usage",
+    "UsageDuration",
+    "UsageTokens",
     "WhisperError",
     "chunk_audio_file",
     "clear_overrides",
     "flatten_options",
     "get_openai_client",
     "inject_deps",
+    "open_audio_file_async",
     "override_dependency",
     "transcribe_audio",
 ]

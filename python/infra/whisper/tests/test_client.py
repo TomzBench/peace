@@ -5,7 +5,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
-from openai.types.audio.transcription import UsageDuration, UsageTokens
 
 from python.infra.whisper.client import transcribe_audio
 from python.infra.whisper.exceptions import TranscriptionError
@@ -15,6 +14,8 @@ from python.infra.whisper.models import (
     TranscriptionOptions,
     TranscriptionResult,
     TranscriptionSegment,
+    UsageDuration,
+    UsageTokens,
 )
 
 # Tests for client creation moved to test_dependencies.py
@@ -80,7 +81,22 @@ def assert_transcription_result(result: TranscriptionResult, e: TranscriptionRes
     assert result.text == e.text
     assert result.language == e.language
     assert result.duration == e.duration
-    assert result.usage == e.usage or (result.usage is None and e.usage is None)
+
+    # Compare usage fields individually (not direct equality)
+    if e.usage is None:
+        assert result.usage is None
+    else:
+        assert result.usage is not None
+        assert result.usage.type == e.usage.type
+        if isinstance(e.usage, UsageDuration):
+            assert isinstance(result.usage, UsageDuration)
+            assert result.usage.seconds == e.usage.seconds
+        elif isinstance(e.usage, UsageTokens):
+            assert isinstance(result.usage, UsageTokens)
+            assert result.usage.input_tokens == e.usage.input_tokens
+            assert result.usage.output_tokens == e.usage.output_tokens
+            assert result.usage.total_tokens == e.usage.total_tokens
+
     if e.segments is not None:
         assert result.segments is not None
         assert len(result.segments) == len(e.segments)
