@@ -91,7 +91,7 @@ def test_open_audio_file_is_directory(tmp_path: Path) -> None:
 
 
 def test_open_audio_file_exceeds_size_limit(tmp_path: Path) -> None:
-    """Test that file exceeding 25MB limit raises AudioFileError."""
+    """Test that files exceeding 25MB are accepted (will be chunked later)."""
     large_file = tmp_path / "large.mp3"
     large_file.write_bytes(b"data")
 
@@ -102,10 +102,9 @@ def test_open_audio_file_exceeds_size_limit(tmp_path: Path) -> None:
         mock_stat_result.st_size = MAX_FILE_SIZE_BYTES + 1
         mock_stat.return_value = mock_stat_result
 
-        with pytest.raises(AudioFileError) as exc_info:
-            open_audio_file(large_file)
-
-        assert "OpenAI API limit of 25MB" in str(exc_info.value)
+        # Large files should be accepted - chunking handles them
+        result = open_audio_file(large_file)
+        assert result.size == MAX_FILE_SIZE_BYTES + 1
 
 
 def test_open_audio_file_invalid_extension(tmp_path: Path) -> None:

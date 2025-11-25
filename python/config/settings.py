@@ -80,6 +80,9 @@ class Settings(BaseSettings):
     openai_api_key: str | None = Field(default=None, validation_alias="OPENAI_API_KEY")
     openai_organization: str | None = Field(default=None, validation_alias="OPENAI_ORGANIZATION")
 
+    # Anthropic API (for Claude summarization)
+    anthropic_api_key: str | None = Field(default=None, validation_alias="ANTHROPIC_API_KEY")
+
     # API
     api_v1_prefix: str = "/api/v1"
 

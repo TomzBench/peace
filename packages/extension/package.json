@@ -1,0 +1,15 @@
+{
+  "name": "@peace/extension",
+  "version": "0.1.0",
+  "description": "Minimal YouTube video summarization extension",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "typescript": "^5.3.0"
+  }
+}

@@ -3,6 +3,9 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from python.infra.agent.exceptions import (
+    AgentError,
+)
 from python.infra.whisper.exceptions import WhisperError
 from python.infra.youtube.exceptions import (
     DownloadError,
@@ -52,5 +55,24 @@ def register_exception_handlers(app: FastAPI) -> None:
                 "error": exc.__class__.__name__,
                 "message": exc.message,
                 "file_path": getattr(exc, "file_path", None),
+            },
+        )
+
+    @app.exception_handler(AgentError)
+    async def agent_exception_handler(request: Request, exc: AgentError) -> JSONResponse:
+        """Handle Agent module exceptions.
+
+        Raises AgentError and subclasses.
+        """
+        from python.infra.agent.exceptions import SummarizationError
+
+        # External API failures return 503, internal errors return 500
+        status_code = 503 if isinstance(exc, SummarizationError) else 500
+
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "error": exc.__class__.__name__,
+                "message": exc.message,
             },
         )

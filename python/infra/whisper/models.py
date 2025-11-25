@@ -130,7 +130,7 @@ class Transcription(BaseModel):
     # Transcription data (using SDK types)
     text: str  # Full transcription text
     segments: list[TranscriptionSegment] = Field(default_factory=list)  # SDK type
-    language: str  # Detected or specified language
+    language: str | None = None  # Detected or specified language
     duration: float | None = None  # Audio duration in seconds
 
     # Wrapper metadata
@@ -143,12 +143,13 @@ class Transcription(BaseModel):
 
     def __repr__(self) -> str:
         duration_str = f"{self.duration:.1f}s" if self.duration else "unknown"
+        language_str = self.language if self.language else "unknown"
         return (
             f"Transcription("
             f"file={self.audio_file.name!r}, "
             f"chars={len(self.text)}, "
             f"segments={len(self.segments)}, "
-            f"language={self.language!r}, "
+            f"language={language_str!r}, "
             f"duration={duration_str}, "
             f"model={self.model_name!r}"
             f")"

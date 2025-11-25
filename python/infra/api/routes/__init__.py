@@ -1,5 +1,5 @@
 """API routes."""
 
-from python.infra.api.routes import app, audio, users
+from python.infra.api.routes import agent, app, users
 
-__all__ = ["app", "audio", "users"]
+__all__ = ["agent", "app", "users"]

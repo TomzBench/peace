@@ -23,11 +23,8 @@ def open_audio_file(path: Path) -> AudioFile:
         raise AudioFileError(f"Path is not a file: {path}", str(path))
 
     file_stat = path.stat()
-    if file_stat.st_size > MAX_FILE_SIZE_BYTES:
-        raise AudioFileError(
-            f"OpenAI API limit of {MAX_FILE_SIZE_MB}MB",
-            str(path),
-        )
+    # Note: Don't reject large files here - chunking will handle them
+    # If file > 25MB, transcribe_audio will automatically chunk it
 
     ext = path.suffix.lower()
     valid_extensions = {".mp3", ".wav", ".m4a", ".flac", ".ogg", ".opus", ".webm", ".mp4"}
